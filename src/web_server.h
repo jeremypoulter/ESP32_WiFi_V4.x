@@ -1,8 +1,16 @@
 #ifndef _EMONESP_WEB_SERVER_H
 #define _EMONESP_WEB_SERVER_H
 
+#include <Arduino.h>
+#ifdef ESP32
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#elif defined(ESP8266)
+#include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#endif
+#include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
-#include <MongooseHttpServer.h>
 
 // Content Types
 extern const char _CONTENT_TYPE_HTML[];
@@ -29,7 +37,7 @@ extern const char _CONTENT_TYPE_PNG[];
 extern const char _CONTENT_TYPE_SVG[];
 #define CONTENT_TYPE_SVG FPSTR(_CONTENT_TYPE_SVG)
 
-extern MongooseHttpServer server;
+extern AsyncWebServer server;
 
 extern void web_server_setup();
 extern void web_server_loop();
@@ -38,7 +46,7 @@ extern void web_server_event(JsonDocument &event);
 
 typedef const __FlashStringHelper *fstr_t;
 
-bool requestPreProcess(MongooseHttpServerRequest *request, MongooseHttpServerResponseStream *&response, fstr_t contentType = CONTENT_TYPE_JSON);
-void dumpRequest(MongooseHttpServerRequest *request);
+bool requestPreProcess(AsyncWebServerRequest *request, AsyncResponseStream *&response, fstr_t contentType = CONTENT_TYPE_JSON);
+void dumpRequest(AsyncWebServerRequest *request);
 
 #endif // _EMONESP_WEB_SERVER_H

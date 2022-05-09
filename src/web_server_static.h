@@ -1,11 +1,25 @@
 #ifndef _EMONESP_WEB_SERVER_STATIC_H
 #define _EMONESP_WEB_SERVER_STATIC_H
 
-#include <MongooseHttpServer.h>
+#ifdef ESP32
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#elif defined(ESP8266)
+#include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#endif
+#include <ESPAsyncWebServer.h>
 
-bool web_static_handle(MongooseHttpServerRequest *request);
+// Static files
+struct StaticFile
+{
+  const char *filename;
+  const char *data;
+  size_t length;
+  const char *type;
+  const char *etag;
+};
 
-/*
 class StaticFileWebHandler: public AsyncWebHandler
 {
   private:
@@ -34,8 +48,6 @@ class StaticFileResponse: public AsyncWebServerResponse
     void _respond(AsyncWebServerRequest *request);
     size_t _ack(AsyncWebServerRequest *request, size_t len, uint32_t time);
     bool _sourceValid() const { return true; }
-
 };
-*/
 
 #endif // _EMONESP_WEB_SERVER_STATIC_H

@@ -2,6 +2,8 @@
 #undef ENABLE_DEBUG
 #endif
 
+/*
+
 #include <Arduino.h>
 #include <Update.h>
 
@@ -15,9 +17,9 @@
 // Update firmware
 // url: /update
 // -------------------------------------------------------------------
-static void handleUpdateGet(MongooseHttpServerRequest *request)
+static void handleUpdateGet(AsyncWebServerRequest *request)
 {
-  MongooseHttpServerResponseStream *response;
+  AsyncResponseStream *response;
   if(false == requestPreProcess(request, response, CONTENT_TYPE_HTML)) {
     return;
   }
@@ -31,9 +33,9 @@ static void handleUpdateGet(MongooseHttpServerRequest *request)
   request->send(response);
 }
 
-static MongooseHttpServerResponseStream *upgradeResponse = NULL;
+static AsyncResponseStream *upgradeResponse = NULL;
 
-void handleUpdateFileUpload(MongooseHttpServerRequest *request)
+void handleUpdateFileUpload(AsyncWebServerRequest *request)
 {
   if(NULL != upgradeResponse) {
     request->send(500, CONTENT_TYPE_TEXT, "Error: Upgrade in progress");
@@ -47,9 +49,9 @@ void handleUpdateFileUpload(MongooseHttpServerRequest *request)
   // TODO: Add support for returning 100: Continue
 }
 
-void handleUpdateFileFetch(MongooseHttpServerRequest *request)
+void handleUpdateFileFetch(AsyncWebServerRequest *request)
 {
-  MongooseHttpServerResponseStream *response;
+  AsyncResponseStream *response;
   if(false == requestPreProcess(request, response, CONTENT_TYPE_JSON)) {
     return;
   }
@@ -81,7 +83,7 @@ void handleUpdateFileFetch(MongooseHttpServerRequest *request)
   request->send(response);
 }
 
-void handleUpdateRequest(MongooseHttpServerRequest *request)
+void handleUpdateRequest(AsyncWebServerRequest *request)
 {
   if(HTTP_GET == request->method())
   {
@@ -97,7 +99,7 @@ void handleUpdateRequest(MongooseHttpServerRequest *request)
   }
 }
 
-static void handleUpdateError(MongooseHttpServerRequest *request)
+static void handleUpdateError(AsyncWebServerRequest *request)
 {
   upgradeResponse->setCode(500);
   upgradeResponse->printf("Error: %d", Update.getError());
@@ -110,7 +112,7 @@ static void handleUpdateError(MongooseHttpServerRequest *request)
 #endif
 }
 
-size_t handleUpdateUpload(MongooseHttpServerRequest *request, int ev, MongooseString filename, uint64_t index, uint8_t *data, size_t len)
+size_t handleUpdateUpload(AsyncWebServerRequest *request, int ev, MongooseString filename, uint64_t index, uint8_t *data, size_t len)
 {
   if(MG_EV_HTTP_PART_BEGIN == ev)
   {
@@ -143,7 +145,7 @@ size_t handleUpdateUpload(MongooseHttpServerRequest *request, int ev, MongooseSt
   return len;
 }
 
-void handleUpdateClose(MongooseHttpServerRequest *request)
+void handleUpdateClose(AsyncWebServerRequest *request)
 {
   DBUGLN("Update close");
 
@@ -156,3 +158,5 @@ void handleUpdateClose(MongooseHttpServerRequest *request)
     restart_system();
   }
 }
+
+*/

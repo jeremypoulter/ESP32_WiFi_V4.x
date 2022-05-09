@@ -18,16 +18,16 @@ typedef const __FlashStringHelper *fstr_t;
 // Download event file.
 // -------------------------------------------------------------------
 
-void handleEventLogs(MongooseHttpServerRequest *request)
+void handleEventLogs(AsyncWebServerRequest *request)
 {
-  MongooseHttpServerResponseStream *response;
+  AsyncResponseStream *response;
   if(false == requestPreProcess(request, response)) {
     return;
   }
 
   if(HTTP_GET == request->method())
   {
-    String path = request->uri();
+    String path = request->url();
     if(path.length() > LOG_BASE_LEN)
     {
       uint32_t block = EvseClient_NULL;

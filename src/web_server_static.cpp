@@ -1,4 +1,4 @@
-#if defined(ENABLE_DEBUG) && !defined(ENABLE_DEBUG_WEB)
+#if defined(ENABLE_DEBUG) && !defined(ENABLE_DEBUG_WEB_STATIC)
 #undef ENABLE_DEBUG
 #endif
 
@@ -11,16 +11,6 @@
 #include "net_manager.h"
 
 extern bool enableCors; // defined in web_server.cpp
-
-// Static files
-struct StaticFile
-{
-  const char *filename;
-  const char *data;
-  size_t length;
-  const char *type;
-  const char *etag;
-};
 
 #include "web_static/web_server_static_files.h"
 
@@ -35,19 +25,14 @@ static const char _HOME_PAGE[] PROGMEM = "/home.html";
 static const char _WIFI_PAGE[] PROGMEM = "/wifi_portal.html";
 #define WIFI_PAGE FPSTR(_WIFI_PAGE)
 
-class StaticFileResponse: public MongooseHttpServerResponse
+StaticFileWebHandler::StaticFileWebHandler()
 {
-  private:
-    StaticFile *_content;
+}
 
-  public:
-    StaticFileResponse(int code, StaticFile *file);
-};
-
-static bool web_static_get_file(MongooseHttpServerRequest *request, StaticFile **file)
+bool StaticFileWebHandler::_getFile(AsyncWebServerRequest *request, StaticFile **file)
 {
   // Remove the found uri
-  String path = request->uri();
+  String path = request->url();
   if(path == "/") {
     path = String(net_wifi_mode_is_ap_only() ? WIFI_PAGE : HOME_PAGE);
   }
@@ -69,45 +54,172 @@ static bool web_static_get_file(MongooseHttpServerRequest *request, StaticFile *
   return false;
 }
 
-bool web_static_handle(MongooseHttpServerRequest *request)
+bool StaticFileWebHandler::canHandle(AsyncWebServerRequest *request)
+{
+  StaticFile *file = NULL;
+  if (request->method() == HTTP_GET &&
+      _getFile(request, &file))
+  {
+    request->_tempObject = file;
+    DBUGF("[StaticFileWebHandler::canHandle] TRUE");
+    return true;
+  }
+
+  return false;
+}
+
+void StaticFileWebHandler::handleRequest(AsyncWebServerRequest *request)
 {
   dumpRequest(request);
 
   // Are we authenticated
   if(!net_wifi_mode_is_ap_only() && www_username!="" &&
-     false == request->authenticate(www_username, www_password)) {
-    request->requestAuthentication(esp_hostname);
-    return false;
+     false == request->authenticate(www_username.c_str(), www_password.c_str())) {
+    request->requestAuthentication(esp_hostname.c_str());
+    return;
   }
 
-  StaticFile *file = NULL;
-  if (web_static_get_file(request, &file))
+  StaticFile *file = (StaticFile *)request->_tempObject;
+  if(file)
   {
-    MongooseHttpServerResponseBasic *response = request->beginResponse();
+    request->_tempObject = NULL;
 
-    response->addHeader(F("Cache-Control"), F("public, max-age=30, must-revalidate"));
-
-    MongooseString ifNoneMatch = request->headers("If-None-Match");
-    if(ifNoneMatch.equals(file->etag)) {
-      request->send(304);
-      return true;
+    AsyncWebHeader *ifNoneMatch = request->getHeader(F("If-None-Match"));
+    if(ifNoneMatch && ifNoneMatch->value().equals(file->etag))
+    {
+      AsyncWebServerResponse *response = request->beginResponse(304, file->type, "");
+      response->addHeader(F("Cache-Control"), F("public, max-age=30, must-revalidate"));
+      request->send(response);
+      return;
     }
 
-    response->setCode(200);
-    response->setContentType(file->type);
-    response->setContentLength(file->length);
-
-    if (enableCors) {
-      response->addHeader(F("Access-Control-Allow-Origin"), F("*"));
-    }
-
-    response->addHeader("Etag", file->etag);
-    response->setContent((const uint8_t *)file->data, file->length);
-
+    AsyncWebServerResponse *response = new StaticFileResponse(200, file);
     request->send(response);
+  } else {
+    request->send(404);
+  }
+}
 
-    return true;
+
+StaticFileResponse::StaticFileResponse(int code, StaticFile *content){
+  _code = code;
+  _content = content;
+  _contentType = String(FPSTR(content->type));
+  _contentLength = content->length;
+  ptr = content->data;
+  addHeader("Connection","close");
+  if (enableCors) {
+    addHeader(F("Access-Control-Allow-Origin"), F("*"));
+  }
+  addHeader(F("Cache-Control"), F("public, max-age=30, must-revalidate"));
+  addHeader(F("Etag"), content->etag);
+}
+
+size_t StaticFileResponse::write(AsyncWebServerRequest *request)
+{
+  size_t total = 0;
+  size_t written = 0;
+  do {
+    written = writeData(request);
+    if(written > 0) {
+      total += written;
+    }
+  } while(written > 0);
+
+  if(total > 0)
+  {
+    //DBUGF("%p: Sending %d", request, total);
+
+    // How should failures to send be handled?
+    request->client()->send();
   }
 
-  return false;
+  return total;
+}
+
+size_t StaticFileResponse::writeData(AsyncWebServerRequest *request)
+{
+  size_t space = request->client()->space();
+
+  DBUGF("%p: StaticFileResponse::write: %s %d %d@%p, free %d", request,
+    RESPONSE_SETUP == _state ? "RESPONSE_SETUP" :
+    RESPONSE_HEADERS == _state ? "RESPONSE_HEADERS" :
+    RESPONSE_CONTENT == _state ? "RESPONSE_CONTENT" :
+    RESPONSE_WAIT_ACK == _state ? "RESPONSE_WAIT_ACK" :
+    RESPONSE_END == _state ? "RESPONSE_END" :
+    RESPONSE_FAILED == _state ? "RESPONSE_FAILED" :
+    "UNKNOWN",
+    space, length, ptr, ESP.getFreeHeap());
+
+  if(length > 0 && space > 0)
+  {
+    size_t written = 0;
+
+    char buffer[128];
+    uint32_t copy = sizeof(buffer);
+    if(copy > length) {
+      copy = length;
+    }
+    if(copy > space) {
+      copy = space;
+    }
+    //DBUGF("%p: write %d@%p", request, copy, ptr);
+    if(IS_ALIGNED(ptr)) {
+      uint32_t *end = (uint32_t *)(ptr + copy);
+      for(uint32_t *src = (uint32_t *)ptr, *dst = (uint32_t *)buffer;
+          src < end; src++, dst++)
+      {
+        *dst = *src;
+      }
+    } else {
+      memcpy_P(buffer, ptr, copy);
+    }
+
+    written = request->client()->add(buffer, copy);
+    if(written > 0) {
+      _writtenLength += written;
+      ptr += written;
+      length -= written;
+    } else {
+      DBUGF("Failed to write data");
+    }
+
+    if(0 == length)
+    {
+      switch(_state)
+      {
+        case RESPONSE_HEADERS:
+          _state = RESPONSE_CONTENT;
+          ptr = _content->data;
+          length = _content->length;
+          break;
+        case RESPONSE_CONTENT:
+          _state = RESPONSE_WAIT_ACK;
+          break;
+
+        default:
+          break;
+      }
+    }
+
+    return written;
+  }
+
+  return 0;
+}
+
+void StaticFileResponse::_respond(AsyncWebServerRequest *request){
+  _state = RESPONSE_HEADERS;
+  _header = _assembleHead(request->version());
+
+  _state = RESPONSE_HEADERS;
+  ptr = _header.c_str();
+  length = _header.length();
+
+  write(request);
+}
+
+size_t StaticFileResponse::_ack(AsyncWebServerRequest *request, size_t len, uint32_t time){
+  _ackedLength += len;
+  return write(request);
 }

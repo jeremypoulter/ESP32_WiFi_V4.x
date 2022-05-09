@@ -16,7 +16,7 @@ typedef const __FlashStringHelper *fstr_t;
 // url: /claims
 // -------------------------------------------------------------------
 void
-handleEvseClaimsGet(MongooseHttpServerRequest *request, MongooseHttpServerResponseStream *response, uint32_t client)
+handleEvseClaimsGet(AsyncWebServerRequest *request, AsyncResponseStream *response, uint32_t client)
 {
   const size_t capacity = JSON_OBJECT_SIZE(40) + 1024;
   DynamicJsonDocument doc(capacity);
@@ -35,35 +35,41 @@ handleEvseClaimsGet(MongooseHttpServerRequest *request, MongooseHttpServerRespon
 }
 
 void
-handleEvseClaimsPost(MongooseHttpServerRequest *request, MongooseHttpServerResponseStream *response, uint32_t client)
+handleEvseClaimsPost(AsyncWebServerRequest *request, AsyncResponseStream *response, uint32_t client)
 {
-  String body = request->body().toString();
-
-  if(EvseClient_NULL != client)
+  if(request->_tempObject)
   {
-    EvseProperties properties;
-    if(properties.deserialize(body))
+    const char *body = (const char *)request->_tempObject;
+
+    if(EvseClient_NULL != client)
     {
-      int priority = EvseManager_Priority_API;
-      if(evse.claim(client, priority, properties)) {
-        response->setCode(200);
-        response->print("{\"msg\":\"done\"}");
+      EvseProperties properties;
+      if(properties.deserialize(body))
+      {
+        int priority = EvseManager_Priority_API;
+        if(evse.claim(client, priority, properties)) {
+          response->setCode(200);
+          response->print("{\"msg\":\"done\"}");
+        } else {
+          response->setCode(400);
+          response->print("{\"msg\":\"Could not make claim\"}");
+        }
       } else {
         response->setCode(400);
-        response->print("{\"msg\":\"Could not make claim\"}");
+        response->print("{\"msg\":\"Could not parse JSON\"}");
       }
     } else {
-      response->setCode(400);
-      response->print("{\"msg\":\"Could not parse JSON\"}");
+      response->setCode(405);
+      response->print("{\"msg\":\"Method not allowed\"}");
     }
   } else {
-    response->setCode(405);
-    response->print("{\"msg\":\"Method not allowed\"}");
+    response->setCode(400);
+    response->print("{\"msg\":\"No Body\"}");
   }
 }
 
 void
-handleEvseClaimsDelete(MongooseHttpServerRequest *request, MongooseHttpServerResponseStream *response, uint32_t client)
+handleEvseClaimsDelete(AsyncWebServerRequest *request, AsyncResponseStream *response, uint32_t client)
 {
   if(EvseClient_NULL != client)
   {
@@ -83,16 +89,16 @@ handleEvseClaimsDelete(MongooseHttpServerRequest *request, MongooseHttpServerRes
 #define EVSE_CLAIM_PATH_LEN (sizeof("/claims/") - 1)
 
 void
-handleEvseClaims(MongooseHttpServerRequest *request)
+handleEvseClaims(AsyncWebServerRequest *request)
 {
-  MongooseHttpServerResponseStream *response;
+  AsyncResponseStream *response;
   if(false == requestPreProcess(request, response)) {
     return;
   }
 
   uint32_t client = EvseClient_NULL;
 
-  String path = request->uri();
+  String path = request->url();
   if(path.length() > EVSE_CLAIM_PATH_LEN) {
     String clientStr = path.substring(EVSE_CLAIM_PATH_LEN);
     DBUGVAR(clientStr);

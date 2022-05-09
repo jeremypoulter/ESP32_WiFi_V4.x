@@ -13,7 +13,6 @@
 #include <MongooseString.h>
 #include <MongooseHttpClient.h>
 
-
 //TAR = Tesla_Active_Request
 #define TAR_NONE      0
 #define TAR_ACC_TOKEN 1

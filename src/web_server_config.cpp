@@ -20,7 +20,7 @@ uint32_t config_version = 0;
 // url: /config
 // -------------------------------------------------------------------
 void
-handleConfigGet(MongooseHttpServerRequest *request, MongooseHttpServerResponseStream *response)
+handleConfigGet(AsyncWebServerRequest *request, AsyncResponseStream *response)
 {
   const size_t capacity = JSON_OBJECT_SIZE(43) + 1024;
   DynamicJsonDocument doc(capacity);
@@ -66,143 +66,149 @@ handleConfigGet(MongooseHttpServerRequest *request, MongooseHttpServerResponseSt
 }
 
 void
-handleConfigPost(MongooseHttpServerRequest *request, MongooseHttpServerResponseStream *response)
+handleConfigPost(AsyncWebServerRequest *request, AsyncResponseStream *response)
 {
-  String body = request->body().toString();
-
-  // Deserialize the JSON document
-  const size_t capacity = JSON_OBJECT_SIZE(50) + 1024;
-  DynamicJsonDocument doc(capacity);
-  DeserializationError error = deserializeJson(doc, body);
-  if(!error)
+  if(request->_tempObject)
   {
-    bool config_modified = false;
+    const char *body = (const char *)request->_tempObject;
 
-    // Update WiFi module config
-    if(config_deserialize(doc)) {
-      config_commit();
-      config_modified = true;
-      DBUGLN("Config updated");
-    }
+    // Deserialize the JSON document
+    const size_t capacity = JSON_OBJECT_SIZE(50) + 1024;
+    DynamicJsonDocument doc(capacity);
+    DeserializationError error = deserializeJson(doc, body);
+    if(!error)
+    {
+      bool config_modified = false;
 
-    // Update EVSE config
-    // Update the EVSE setting flags, a little low level, may move later
-    if(doc.containsKey("diode_check"))
-    {
-      bool enable = doc["diode_check"];
-      if(enable != evse.isDiodeCheckEnabled()) {
-        evse.enableDiodeCheck(enable);
+      // Update WiFi module config
+      if(config_deserialize(doc)) {
+        config_commit();
         config_modified = true;
-        DBUGLN("diode_check changed");
+        DBUGLN("Config updated");
       }
-    }
-    if(doc.containsKey("gfci_check"))
-    {
-      bool enable = doc["gfci_check"];
-      if(enable != evse.isGfiTestEnabled()) {
-        evse.enableGfiTestCheck(enable);
-        config_modified = true;
-        DBUGLN("gfci_check changed");
-      }
-    }
-    if(doc.containsKey("ground_check"))
-    {
-      bool enable = doc["ground_check"];
-      if(enable != evse.isGroundCheckEnabled()) {
-        evse.enableGroundCheck(enable);
-        config_modified = true;
-        DBUGLN("ground_check changed");
-      }
-    }
-    if(doc.containsKey("relay_check"))
-    {
-      bool enable = doc["relay_check"];
-      if(enable != evse.isStuckRelayCheckEnabled()) {
-        evse.enableStuckRelayCheck(enable);
-        config_modified = true;
-        DBUGLN("relay_check changed");
-      }
-    }
-    if(doc.containsKey("vent_check"))
-    {
-      bool enable = doc["vent_check"];
-      if(enable != evse.isVentRequiredEnabled()) {
-        evse.enableVentRequired(enable);
-        config_modified = true;
-        DBUGLN("vent_check changed");
-      }
-    }
-    if(doc.containsKey("temp_check"))
-    {
-      bool enable = doc["temp_check"];
-      if(enable != evse.isTemperatureCheckEnabled()) {
-        evse.enableTemperatureCheck(enable);
-        config_modified = true;
-        DBUGLN("temp_check changed");
-      }
-    }
-    if(doc.containsKey("service"))
-    {
-      EvseMonitor::ServiceLevel service = static_cast<EvseMonitor::ServiceLevel>(doc["service"].as<uint8_t>());
-      if(service != evse.getServiceLevel()) {
-        evse.setServiceLevel(service);
-        config_modified = true;
-        DBUGLN("service changed");
-      }
-    }
-    if(doc.containsKey("max_current_soft"))
-    {
-      long current = doc["max_current_soft"];
-      if(current != evse.getMaxConfiguredCurrent()) {
-        evse.setMaxConfiguredCurrent(current);
-        config_modified = true;
-        DBUGLN("max_current_soft changed");
-      }
-    }
-    if(doc.containsKey("scale") && doc.containsKey("offset"))
-    {
-      long scale = doc["scale"];
-      long offset = doc["offset"];
-      if(scale != evse.getCurrentSensorScale() || offset != evse.getCurrentSensorOffset()) {
-        evse.configureCurrentSensorScale(doc["scale"], doc["offset"]);
-        config_modified = true;
-        DBUGLN("scale changed");
-      }
-    }
 
-    StaticJsonDocument<128> doc;
+      // Update EVSE config
+      // Update the EVSE setting flags, a little low level, may move later
+      if(doc.containsKey("diode_check"))
+      {
+        bool enable = doc["diode_check"];
+        if(enable != evse.isDiodeCheckEnabled()) {
+          evse.enableDiodeCheck(enable);
+          config_modified = true;
+          DBUGLN("diode_check changed");
+        }
+      }
+      if(doc.containsKey("gfci_check"))
+      {
+        bool enable = doc["gfci_check"];
+        if(enable != evse.isGfiTestEnabled()) {
+          evse.enableGfiTestCheck(enable);
+          config_modified = true;
+          DBUGLN("gfci_check changed");
+        }
+      }
+      if(doc.containsKey("ground_check"))
+      {
+        bool enable = doc["ground_check"];
+        if(enable != evse.isGroundCheckEnabled()) {
+          evse.enableGroundCheck(enable);
+          config_modified = true;
+          DBUGLN("ground_check changed");
+        }
+      }
+      if(doc.containsKey("relay_check"))
+      {
+        bool enable = doc["relay_check"];
+        if(enable != evse.isStuckRelayCheckEnabled()) {
+          evse.enableStuckRelayCheck(enable);
+          config_modified = true;
+          DBUGLN("relay_check changed");
+        }
+      }
+      if(doc.containsKey("vent_check"))
+      {
+        bool enable = doc["vent_check"];
+        if(enable != evse.isVentRequiredEnabled()) {
+          evse.enableVentRequired(enable);
+          config_modified = true;
+          DBUGLN("vent_check changed");
+        }
+      }
+      if(doc.containsKey("temp_check"))
+      {
+        bool enable = doc["temp_check"];
+        if(enable != evse.isTemperatureCheckEnabled()) {
+          evse.enableTemperatureCheck(enable);
+          config_modified = true;
+          DBUGLN("temp_check changed");
+        }
+      }
+      if(doc.containsKey("service"))
+      {
+        EvseMonitor::ServiceLevel service = static_cast<EvseMonitor::ServiceLevel>(doc["service"].as<uint8_t>());
+        if(service != evse.getServiceLevel()) {
+          evse.setServiceLevel(service);
+          config_modified = true;
+          DBUGLN("service changed");
+        }
+      }
+      if(doc.containsKey("max_current_soft"))
+      {
+        long current = doc["max_current_soft"];
+        if(current != evse.getMaxConfiguredCurrent()) {
+          evse.setMaxConfiguredCurrent(current);
+          config_modified = true;
+          DBUGLN("max_current_soft changed");
+        }
+      }
+      if(doc.containsKey("scale") && doc.containsKey("offset"))
+      {
+        long scale = doc["scale"];
+        long offset = doc["offset"];
+        if(scale != evse.getCurrentSensorScale() || offset != evse.getCurrentSensorOffset()) {
+          evse.configureCurrentSensorScale(doc["scale"], doc["offset"]);
+          config_modified = true;
+          DBUGLN("scale changed");
+        }
+      }
 
-    if(config_modified)
-    {
-      // HACK: force a flush of the RAPI command queue to make sure the config
-      //       is updated before we send the response
-      DBUG("Flushing RAPI command queue ...");
-      rapiSender.flush();
-      DBUGLN(" Done");
-      config_version++;
-      DBUGVAR(config_version);
+      StaticJsonDocument<128> doc;
+
+      if(config_modified)
+      {
+        // HACK: force a flush of the RAPI command queue to make sure the config
+        //       is updated before we send the response
+        DBUG("Flushing RAPI command queue ...");
+        rapiSender.flush();
+        DBUGLN(" Done");
+        config_version++;
+        DBUGVAR(config_version);
+      }
+
+      doc["config_version"] = config_version;
+
+      if(config_modified) {
+        event_send(doc);
+      }
+
+      doc["msg"] = config_modified ? "done" : "no change";
+
+      response->setCode(200);
+      serializeJson(doc, *response);
+    } else {
+      response->setCode(400);
+      response->print("{\"msg\":\"Could not parse JSON\"}");
     }
-
-    doc["config_version"] = config_version;
-
-    if(config_modified) {
-      event_send(doc);
-    }
-
-    doc["msg"] = config_modified ? "done" : "no change";
-
-    response->setCode(200);
-    serializeJson(doc, *response);
   } else {
     response->setCode(400);
-    response->print("{\"msg\":\"Could not parse JSON\"}");
+    response->print("{\"msg\":\"No Body\"}");
   }
 }
 
 void
-handleConfig(MongooseHttpServerRequest *request)
+handleConfig(AsyncWebServerRequest *request)
 {
-  MongooseHttpServerResponseStream *response;
+  AsyncResponseStream *response;
   if(false == requestPreProcess(request, response)) {
     return;
   }
