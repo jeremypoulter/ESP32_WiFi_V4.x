@@ -93,133 +93,16 @@ void StaticFileWebHandler::handleRequest(AsyncWebServerRequest *request)
       return;
     }
 
-    AsyncWebServerResponse *response = new StaticFileResponse(200, file);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, file->type, (const uint8_t *)file->data, file->length);
+    // response->addHeader("Content-Encoding", "gzip");
+    response->addHeader("Connection","close");
+    if (enableCors) {
+      response->addHeader(F("Access-Control-Allow-Origin"), F("*"));
+    }
+    response->addHeader(F("Cache-Control"), F("public, max-age=30, must-revalidate"));
+    response->addHeader(F("Etag"), file->etag);
     request->send(response);
   } else {
     request->send(404);
   }
-}
-
-
-StaticFileResponse::StaticFileResponse(int code, StaticFile *content){
-  _code = code;
-  _content = content;
-  _contentType = String(FPSTR(content->type));
-  _contentLength = content->length;
-  ptr = content->data;
-  addHeader("Connection","close");
-  if (enableCors) {
-    addHeader(F("Access-Control-Allow-Origin"), F("*"));
-  }
-  addHeader(F("Cache-Control"), F("public, max-age=30, must-revalidate"));
-  addHeader(F("Etag"), content->etag);
-}
-
-size_t StaticFileResponse::write(AsyncWebServerRequest *request)
-{
-  size_t total = 0;
-  size_t written = 0;
-  do {
-    written = writeData(request);
-    if(written > 0) {
-      total += written;
-    }
-  } while(written > 0);
-
-  if(total > 0)
-  {
-    //DBUGF("%p: Sending %d", request, total);
-
-    // How should failures to send be handled?
-    request->client()->send();
-  }
-
-  return total;
-}
-
-size_t StaticFileResponse::writeData(AsyncWebServerRequest *request)
-{
-  size_t space = request->client()->space();
-
-  DBUGF("%p: StaticFileResponse::write: %s %d %d@%p, free %d", request,
-    RESPONSE_SETUP == _state ? "RESPONSE_SETUP" :
-    RESPONSE_HEADERS == _state ? "RESPONSE_HEADERS" :
-    RESPONSE_CONTENT == _state ? "RESPONSE_CONTENT" :
-    RESPONSE_WAIT_ACK == _state ? "RESPONSE_WAIT_ACK" :
-    RESPONSE_END == _state ? "RESPONSE_END" :
-    RESPONSE_FAILED == _state ? "RESPONSE_FAILED" :
-    "UNKNOWN",
-    space, length, ptr, ESP.getFreeHeap());
-
-  if(length > 0 && space > 0)
-  {
-    size_t written = 0;
-
-    char buffer[128];
-    uint32_t copy = sizeof(buffer);
-    if(copy > length) {
-      copy = length;
-    }
-    if(copy > space) {
-      copy = space;
-    }
-    //DBUGF("%p: write %d@%p", request, copy, ptr);
-    if(IS_ALIGNED(ptr)) {
-      uint32_t *end = (uint32_t *)(ptr + copy);
-      for(uint32_t *src = (uint32_t *)ptr, *dst = (uint32_t *)buffer;
-          src < end; src++, dst++)
-      {
-        *dst = *src;
-      }
-    } else {
-      memcpy_P(buffer, ptr, copy);
-    }
-
-    written = request->client()->add(buffer, copy);
-    if(written > 0) {
-      _writtenLength += written;
-      ptr += written;
-      length -= written;
-    } else {
-      DBUGF("Failed to write data");
-    }
-
-    if(0 == length)
-    {
-      switch(_state)
-      {
-        case RESPONSE_HEADERS:
-          _state = RESPONSE_CONTENT;
-          ptr = _content->data;
-          length = _content->length;
-          break;
-        case RESPONSE_CONTENT:
-          _state = RESPONSE_WAIT_ACK;
-          break;
-
-        default:
-          break;
-      }
-    }
-
-    return written;
-  }
-
-  return 0;
-}
-
-void StaticFileResponse::_respond(AsyncWebServerRequest *request){
-  _state = RESPONSE_HEADERS;
-  _header = _assembleHead(request->version());
-
-  _state = RESPONSE_HEADERS;
-  ptr = _header.c_str();
-  length = _header.length();
-
-  write(request);
-}
-
-size_t StaticFileResponse::_ack(AsyncWebServerRequest *request, size_t len, uint32_t time){
-  _ackedLength += len;
-  return write(request);
 }
