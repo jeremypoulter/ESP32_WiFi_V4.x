@@ -10,8 +10,8 @@
 #include "espal.h"
 #include "net_manager.h"
 #include "web_server.h"
-
 #include "openevse.h"
+#include "current_shaper.h"
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -57,6 +57,24 @@ void mqttmsg_callback(MongooseString topic, MongooseString payload) {
     grid_ie = payload_str.toInt();
     DBUGF("grid:%dW", grid_ie);
     divert_update_state();
+  }
+  else if (topic_string == mqtt_max_pwr)
+  {
+    CurrentShaperTask *CurrentShaperTask;
+    CurrentShaperTask = CurrentShaperTask::instance;
+    if (CurrentShaperTask) {
+      CurrentShaperTask->setMaxPwr(payload_str.toInt());
+      DBUGF("shaper: max power:%dW", shaper.getMaxPwr());
+    }
+  }
+  else if (topic_string == mqtt_live_pwr)
+  {
+    CurrentShaperTask *CurrentShaperTask;
+    CurrentShaperTask = CurrentShaperTask::instance;
+    if (CurrentShaperTask) {
+      CurrentShaperTask->setLivePwr(payload_str.toInt());
+      DBUGF("shaper: available power:%dW", shaper.getAvlPwr());
+    }
   }
   else if (topic_string == mqtt_vrms)
   {
@@ -213,6 +231,16 @@ mqtt_connect()
       }
       if (mqtt_grid_ie != "") {
         mqttclient.subscribe(mqtt_grid_ie);
+      }
+    }
+    // subscribe to current shaper MQTT feeds
+    if(config_current_shaper_enabled())
+    {
+      if (mqtt_max_pwr != "") {
+        mqttclient.subscribe(mqtt_max_pwr);
+      }
+      if (mqtt_live_pwr != "") {
+        mqttclient.subscribe(mqtt_live_pwr);
       }
     }
 

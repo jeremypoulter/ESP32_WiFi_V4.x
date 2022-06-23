@@ -38,6 +38,7 @@ typedef const __FlashStringHelper *fstr_t;
 #include "tesla_client.h"
 #include "scheduler.h"
 #include "rfid.h"
+#include "current_shaper.h"
 
 MongooseHttpServer server;          // Create class for Web server
 
@@ -357,6 +358,8 @@ handleSaveMqtt(MongooseHttpServerRequest *request) {
                    pass,
                    request->getParam("solar"),
                    request->getParam("grid_ie"),
+                   request->getParam("max_pwr"),
+                   request->getParam("avl_pwr"),
                    reject_unauthorized);
 
   char tmpStr[200];

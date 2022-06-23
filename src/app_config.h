@@ -40,6 +40,8 @@ extern String mqtt_pass;
 extern String mqtt_solar;
 extern String mqtt_grid_ie;
 extern String mqtt_vrms;
+extern String mqtt_max_pwr;
+extern String mqtt_live_pwr;
 extern String mqtt_vehicle_soc;
 extern String mqtt_vehicle_range;
 extern String mqtt_vehicle_eta;
@@ -81,6 +83,8 @@ extern uint32_t flags;
 #define CONFIG_OCPP_ACCESS_ENERGIZE (1 << 16)
 #define CONFIG_VEHICLE_RANGE_MILES  (1 << 17)
 #define CONFIG_RFID                 (1 << 18)
+#define CONFIG_SERVICE_CUR_SHAPER   (1 << 19)
+
 
 inline bool config_emoncms_enabled() {
   return CONFIG_SERVICE_EMONCMS == (flags & CONFIG_SERVICE_EMONCMS);
@@ -126,6 +130,10 @@ inline bool config_divert_enabled() {
   return CONFIG_SERVICE_DIVERT == (flags & CONFIG_SERVICE_DIVERT);
 }
 
+inline bool config_current_shaper_enabled() {
+  return CONFIG_SERVICE_CUR_SHAPER == (flags & CONFIG_SERVICE_CUR_SHAPER);
+}
+
 inline uint8_t config_charge_mode() {
   return (flags & CONFIG_CHARGE_MODE) >> 10;
 }
@@ -159,7 +167,7 @@ extern void config_save_emoncms(bool enable, String server, String node, String 
 // -------------------------------------------------------------------
 // Save the MQTT broker details
 // -------------------------------------------------------------------
-extern void config_save_mqtt(bool enable, int protocol, String server, uint16_t port, String topic, String user, String pass, String solar, String grid_ie, bool reject_unauthorized);
+extern void config_save_mqtt(bool enable, int protocol, String server, uint16_t port, String topic, String user, String pass, String solar, String grid_ie, String max_pwr, String live_pwr,bool reject_unauthorized);
 
 // -------------------------------------------------------------------
 // Save the admin/web interface details

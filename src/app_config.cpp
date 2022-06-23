@@ -46,6 +46,8 @@ String mqtt_pass;
 String mqtt_solar;
 String mqtt_grid_ie;
 String mqtt_vrms;
+String mqtt_max_pwr;
+String mqtt_live_pwr;
 String mqtt_vehicle_soc;
 String mqtt_vehicle_range;
 String mqtt_vehicle_eta;
@@ -127,6 +129,8 @@ ConfigOpt *opts[] =
   new ConfigOptDefenition<String>(mqtt_solar, "", "mqtt_solar", "mo"),
   new ConfigOptDefenition<String>(mqtt_grid_ie, "emon/emonpi/power1", "mqtt_grid_ie", "mg"),
   new ConfigOptDefenition<String>(mqtt_vrms, "emon/emonpi/vrms", "mqtt_vrms", "mv"),
+  new ConfigOptDefenition<String>(mqtt_max_pwr, "max power topic", "mqtt_max_pwr", "mmp"),
+  new ConfigOptDefenition<String>(mqtt_live_pwr, "live power used topic", "mqtt_live_pwr", "map"),
   new ConfigOptDefenition<String>(mqtt_vehicle_soc, "", "mqtt_vehicle_soc", "mc"),
   new ConfigOptDefenition<String>(mqtt_vehicle_range, "", "mqtt_vehicle_range", "mr"),
   new ConfigOptDefenition<String>(mqtt_vehicle_eta, "", "mqtt_vehicle_eta", "met"),
@@ -173,6 +177,7 @@ ConfigOpt *opts[] =
   new ConfigOptVirtualBool(flagsOpt, CONFIG_SERVICE_SNTP, CONFIG_SERVICE_SNTP, "sntp_enabled", "se"),
   new ConfigOptVirtualBool(flagsOpt, CONFIG_SERVICE_TESLA, CONFIG_SERVICE_TESLA, "tesla_enabled", "te"),
   new ConfigOptVirtualBool(flagsOpt, CONFIG_SERVICE_DIVERT, CONFIG_SERVICE_DIVERT, "divert_enabled", "de"),
+  new ConfigOptVirtualBool(flagsOpt, CONFIG_SERVICE_CUR_SHAPER, CONFIG_SERVICE_CUR_SHAPER, "current_shaper_enabled", "cse"),
   new ConfigOptVirtualBool(flagsOpt, CONFIG_PAUSE_USES_DISABLED, CONFIG_PAUSE_USES_DISABLED, "pause_uses_disabled", "pd"),
   new ConfigOptVirtualBool(flagsOpt, CONFIG_VEHICLE_RANGE_MILES, CONFIG_VEHICLE_RANGE_MILES, "mqtt_vehicle_range_miles", "mvru"),
   new ConfigOptVirtualBool(flagsOpt, CONFIG_SERVICE_OCPP, CONFIG_SERVICE_OCPP, "ocpp_enabled", "ope"),
@@ -310,7 +315,7 @@ void config_save_emoncms(bool enable, String server, String node, String apikey,
 }
 
 void
-config_save_mqtt(bool enable, int protocol, String server, uint16_t port, String topic, String user, String pass, String solar, String grid_ie, bool reject_unauthorized)
+config_save_mqtt(bool enable, int protocol, String server, uint16_t port, String topic, String user, String pass, String solar, String grid_ie, String max_pwr, String live_pwr, bool reject_unauthorized)
 {
   uint32_t newflags = flags & ~(CONFIG_SERVICE_MQTT | CONFIG_MQTT_PROTOCOL | CONFIG_MQTT_ALLOW_ANY_CERT);
   if(enable) {
@@ -328,6 +333,8 @@ config_save_mqtt(bool enable, int protocol, String server, uint16_t port, String
   config.set("mqtt_pass", pass);
   config.set("mqtt_solar", solar);
   config.set("mqtt_grid_ie", grid_ie);
+  config.set("mqtt_max_pwr", max_pwr);
+  config.set("mqtt_live_pwr", live_pwr);
   config.set("flags", newflags);
   config.commit();
 }
