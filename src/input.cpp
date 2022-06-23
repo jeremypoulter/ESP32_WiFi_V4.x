@@ -28,6 +28,7 @@ class InputTask : public MicroTasks::Task
   private:
     MicroTasks::EventListener _evseState;
     MicroTasks::EventListener _evseData;
+
   protected:
     void setup()
     {
@@ -66,7 +67,9 @@ class InputTask : public MicroTasks::Task
         event["flags"] = evse.getFlags();
         event["vehicle"] = evse.isVehicleConnected() ? 1 : 0;
         event["colour"] = evse.getStateColour();
-        event["manual_override"] = manual.isActive() ? 1 : 0;
+        event["pilot"] = evse.getPilotState();
+        event["manual_override"] = manual.isActive() ? 1 : 0; //TODO: remove this
+        event["override"] = getOverride(); 
         event["session_energy"] = evse.getSessionEnergy();
         event_send(event);
       }
@@ -91,6 +94,7 @@ void create_rapi_json(JsonDocument &doc)
   doc["amp"] = evse.getAmps() * AMPS_SCALE_FACTOR;
   doc["voltage"] = evse.getVoltage() * VOLTS_SCALE_FACTOR;
   doc["pilot"] = evse.getChargeCurrent();
+  doc["max_current"] = evse.getMaxCurrent();
   doc["wh"] = evse.getTotalEnergy() * TOTAL_ENERGY_SCALE_FACTOR;
   doc["session_energy"] = evse.getSessionEnergy();
   doc["total_energy"] = evse.getTotalEnergy();
@@ -130,10 +134,25 @@ void create_rapi_json(JsonDocument &doc)
   doc["flags"] = evse.getFlags();
   doc["vehicle"] = evse.isVehicleConnected() ? 1 : 0;
   doc["colour"] = evse.getStateColour();
-  doc["manual_override"] = manual.isActive() ? 1 : 0;
+  doc["manual_override"] = manual.isActive() ? 1 : 0; //TODO: remove this 
+  //replace "manual_override", should be either 0 or json override claim.
+  doc["override"] = getOverride();
   doc["freeram"] = ESPAL.getFreeHeap();
   doc["divertmode"] = divertmode;
   doc["srssi"] = WiFi.RSSI();
+}
+
+String getOverride() {
+  String override = "";
+  const size_t capacity = JSON_OBJECT_SIZE(10) + 1024;
+  DynamicJsonDocument doc(capacity);
+  if(manual.isActive()) {
+    evse.serializeClaim(doc, EvseClient_OpenEVSE_Manual);   
+  } else {
+    doc["state"] = "null";
+  }
+  serializeJson(doc, override);
+  return override;
 }
 
 void
