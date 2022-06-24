@@ -51,6 +51,8 @@ class CurrentShaperTask: public MicroTasks::Task
       return _evse->clientHasClaim(EvseClient_OpenEVSE_Shaper);
     }
     static void notifyConfigChanged(bool enabled, uint32_t max_pwr);
+    static void enable();
+    static void disable();
 };
 
 

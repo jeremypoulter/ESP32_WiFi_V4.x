@@ -121,6 +121,15 @@ void mqttmsg_callback(MongooseString topic, MongooseString payload) {
       divertmode_update(newdivert);
     }
   }
+  else if (topic_string == mqtt_topic + "/shaper/set")
+  {
+    byte newshaper = payload_str.toInt();
+    if (newshaper==0) {
+      CurrentShaperTask::disable();
+    } else if (newshaper==1) {
+      CurrentShaperTask::enable();
+    }
+  }
   // Manual Override
   else if (topic_string == mqtt_topic + "/override/set") {
     if (payload_str.equals("clear")) {
@@ -286,6 +295,9 @@ mqtt_connect()
     }
     // settable mqtt topics
     mqtt_sub_topic = mqtt_topic + "/divertmode/set";
+    mqttclient.subscribe(mqtt_sub_topic);
+
+    mqtt_sub_topic = mqtt_topic + "/shaper/set";
     mqttclient.subscribe(mqtt_sub_topic);
 
     mqtt_sub_topic = mqtt_topic + "/override/set";        

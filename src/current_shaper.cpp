@@ -88,6 +88,26 @@ void CurrentShaperTask::setLivePwr(int live_pwr) {
 	}
 }
 
+// temporary enable without changing configuration 
+void CurrentShaperTask::enable() {
+	if (instance) {
+		instance -> _enabled = true;
+		StaticJsonDocument<128> event;
+		event["shaper_enabled"]  = true;
+		event_send(event);
+	}
+}
+// temporary disable without changing configuration 
+void CurrentShaperTask::disable() {
+	if (instance) {
+		instance -> _enabled = false;
+		evse.release(EvseClient_OpenEVSE_Shaper);
+		StaticJsonDocument<128> event;
+		event["shaper_enabled"]  = false;
+		event_send(event);
+		
+	}
+}
 void CurrentShaperTask::shapeCurrent() {
 	_chg_cur = round((_max_pwr - _live_pwr + evse.getAmps()) / evse.getVoltage());
 	_changed = true; // update claim in the loop
