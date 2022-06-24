@@ -7,6 +7,7 @@
 #include "emoncms.h"
 #include "input.h"
 #include "LedManagerTask.h"
+#include "current_shaper.h"
 
 #include "app_config.h"
 #include "app_config_mqtt.h"
@@ -46,7 +47,6 @@ String mqtt_pass;
 String mqtt_solar;
 String mqtt_grid_ie;
 String mqtt_vrms;
-String mqtt_max_pwr;
 String mqtt_live_pwr;
 String mqtt_vehicle_soc;
 String mqtt_vehicle_range;
@@ -73,6 +73,9 @@ double divert_PV_ratio;
 double divert_attack_smoothing_factor;
 double divert_decay_smoothing_factor;
 uint32_t divert_min_charge_time;
+
+// Current Shaper settings
+uint32_t current_shaper_max_pwr;
 
 // Tesla Client settings
 String tesla_access_token;
@@ -129,8 +132,7 @@ ConfigOpt *opts[] =
   new ConfigOptDefenition<String>(mqtt_solar, "", "mqtt_solar", "mo"),
   new ConfigOptDefenition<String>(mqtt_grid_ie, "emon/emonpi/power1", "mqtt_grid_ie", "mg"),
   new ConfigOptDefenition<String>(mqtt_vrms, "emon/emonpi/vrms", "mqtt_vrms", "mv"),
-  new ConfigOptDefenition<String>(mqtt_max_pwr, "max power topic", "mqtt_max_pwr", "mmp"),
-  new ConfigOptDefenition<String>(mqtt_live_pwr, "live power used topic", "mqtt_live_pwr", "map"),
+  new ConfigOptDefenition<String>(mqtt_live_pwr, "", "mqtt_live_pwr", "map"),
   new ConfigOptDefenition<String>(mqtt_vehicle_soc, "", "mqtt_vehicle_soc", "mc"),
   new ConfigOptDefenition<String>(mqtt_vehicle_range, "", "mqtt_vehicle_range", "mr"),
   new ConfigOptDefenition<String>(mqtt_vehicle_eta, "", "mqtt_vehicle_eta", "met"),
@@ -150,6 +152,9 @@ ConfigOpt *opts[] =
   new ConfigOptDefenition<double>(divert_attack_smoothing_factor, 0.4, "divert_attack_smoothing_factor", "da"),
   new ConfigOptDefenition<double>(divert_decay_smoothing_factor, 0.05, "divert_decay_smoothing_factor", "dd"),
   new ConfigOptDefenition<uint32_t>(divert_min_charge_time, (10 * 60), "divert_min_charge_time", "dt"),
+
+// Current Shaper settings
+  new ConfigOptDefenition<uint32_t>(current_shaper_max_pwr, 0 , "current_shaper_max_pwr", "smp"),
 
 // Tesla client settings
   new ConfigOptSecret(tesla_access_token, "", "tesla_access_token", "tat"),
@@ -245,6 +250,8 @@ void config_changed(String name)
     DBUGVAR(config_divert_enabled());
     DBUGVAR(config_charge_mode());
     divertmode_update((config_divert_enabled() && 1 == config_charge_mode()) ? DIVERT_MODE_ECO : DIVERT_MODE_NORMAL);
+  } else if(name.startsWith("current_shaper_")) {
+    CurrentShaperTask::notifyConfigChanged(config_current_shaper_enabled(),current_shaper_max_pwr);
   } else if(name == "tesla_vehicle_id") {
     teslaClient.setVehicleId(tesla_vehicle_id);
   } else if(name.startsWith("tesla_")) {
@@ -315,7 +322,7 @@ void config_save_emoncms(bool enable, String server, String node, String apikey,
 }
 
 void
-config_save_mqtt(bool enable, int protocol, String server, uint16_t port, String topic, String user, String pass, String solar, String grid_ie, String max_pwr, String live_pwr, bool reject_unauthorized)
+config_save_mqtt(bool enable, int protocol, String server, uint16_t port, String topic, String user, String pass, String solar, String grid_ie, String live_pwr, bool reject_unauthorized)
 {
   uint32_t newflags = flags & ~(CONFIG_SERVICE_MQTT | CONFIG_MQTT_PROTOCOL | CONFIG_MQTT_ALLOW_ANY_CERT);
   if(enable) {
@@ -333,7 +340,6 @@ config_save_mqtt(bool enable, int protocol, String server, uint16_t port, String
   config.set("mqtt_pass", pass);
   config.set("mqtt_solar", solar);
   config.set("mqtt_grid_ie", grid_ie);
-  config.set("mqtt_max_pwr", max_pwr);
   config.set("mqtt_live_pwr", live_pwr);
   config.set("flags", newflags);
   config.commit();

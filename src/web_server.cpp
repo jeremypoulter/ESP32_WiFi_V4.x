@@ -358,7 +358,6 @@ handleSaveMqtt(MongooseHttpServerRequest *request) {
                    pass,
                    request->getParam("solar"),
                    request->getParam("grid_ie"),
-                   request->getParam("max_pwr"),
                    request->getParam("avl_pwr"),
                    reject_unauthorized);
 
@@ -620,7 +619,7 @@ handleStatus(MongooseHttpServerRequest *request) {
   doc["grid_ie"] = grid_ie;
   doc["charge_rate"] = charge_rate;
   doc["divert_update"] = (millis() - lastUpdate) / 1000;
-
+  
   doc["service_level"] = static_cast<uint8_t>(evse.getActualServiceLevel());
 
   doc["ota_update"] = (int)Update.isRunning();

@@ -47,7 +47,6 @@ typedef uint32_t EvseClient;
 #define EvseManager_Priority_API       500
 #define EvseManager_Priority_MQTT      500
 #define EvseManager_Priority_Ohm       500
-#define EvseManager_Priority_Shaper    600
 #define EvseManager_Priority_Manual   1000
 #define EvseManager_Priority_RFID     1030
 #define EvseManager_Priority_Ocpp     1050   

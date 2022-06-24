@@ -21,7 +21,7 @@
 class CurrentShaperTask: public MicroTasks::Task
 {
   private:
-    EvseManager *_evse;
+     EvseManager *_evse;
     bool         _enabled;
     bool         _changed;
     uint32_t     _timer;
@@ -32,25 +32,25 @@ class CurrentShaperTask: public MicroTasks::Task
   protected:
     void setup();
     unsigned long loop(MicroTasks::WakeReason reason);
+    void shapeCurrent();
+
 
   public:
     CurrentShaperTask();
     ~CurrentShaperTask();
     static CurrentShaperTask *instance;
     void begin(EvseManager &evse);
-  
-    void reconfigure();
 
-    void setMaxPwr(int max_pwr);
-    void setLivePwr(int live_pwr);
-    void shapeCurrent();
+     void setMaxPwr(int max_pwr);
+     void setLivePwr(int live_pwr);
+     
+     int getMaxPwr();
+     int getLivePwr();
 
-    int getMaxPwr();
-    int getLivePwr();
-
-    bool isActive() {
+     bool isActive() {
       return _evse->clientHasClaim(EvseClient_OpenEVSE_Shaper);
     }
+    static void notifyConfigChanged(bool enabled, uint32_t max_pwr);
 };
 
 

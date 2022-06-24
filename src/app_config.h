@@ -40,7 +40,6 @@ extern String mqtt_pass;
 extern String mqtt_solar;
 extern String mqtt_grid_ie;
 extern String mqtt_vrms;
-extern String mqtt_max_pwr;
 extern String mqtt_live_pwr;
 extern String mqtt_vehicle_soc;
 extern String mqtt_vehicle_range;
@@ -64,6 +63,9 @@ extern double divert_PV_ratio;
 extern double divert_attack_smoothing_factor;
 extern double divert_decay_smoothing_factor;
 extern uint32_t divert_min_charge_time;
+
+//Shaper settings
+extern uint32_t current_shaper_max_pwr;
 
 // 24-bits of Flags
 extern uint32_t flags;
@@ -167,7 +169,7 @@ extern void config_save_emoncms(bool enable, String server, String node, String 
 // -------------------------------------------------------------------
 // Save the MQTT broker details
 // -------------------------------------------------------------------
-extern void config_save_mqtt(bool enable, int protocol, String server, uint16_t port, String topic, String user, String pass, String solar, String grid_ie, String max_pwr, String live_pwr,bool reject_unauthorized);
+extern void config_save_mqtt(bool enable, int protocol, String server, uint16_t port, String topic, String user, String pass, String solar, String grid_ie, String live_pwr, bool reject_unauthorized);
 
 // -------------------------------------------------------------------
 // Save the admin/web interface details
