@@ -358,7 +358,7 @@ handleSaveMqtt(MongooseHttpServerRequest *request) {
                    pass,
                    request->getParam("solar"),
                    request->getParam("grid_ie"),
-                   request->getParam("avl_pwr"),
+                   request->getParam("live_pwr"), 
                    reject_unauthorized);
 
   char tmpStr[200];
@@ -394,6 +394,27 @@ handleDivertMode(MongooseHttpServerRequest *request){
 
   DBUGF("Divert Mode: %d", divertmode);
 }
+
+// -------------------------------------------------------------------
+// Change current shaper mode 0:disable (default), 1:Enable
+// url: /shaper
+// -------------------------------------------------------------------
+void
+handleCurrentShaper(MongooseHttpServerRequest *request) {
+  MongooseHttpServerResponseStream *response;
+  if(false == requestPreProcess(request, response, CONTENT_TYPE_TEXT)) {
+    return;
+  }
+
+  CurrentShaperTask::setState(request->getParam("shaper").toInt() == 1? true: false);
+
+  response->setCode(200);
+  response->print("Current Shaper state changed");
+  request->send(response);
+
+  DBUGF("Divert Mode: %d", divertmode);
+}
+
 
 // -------------------------------------------------------------------
 // Save the web site user/pass
@@ -1098,6 +1119,7 @@ web_server_setup() {
   server.on("/scan$", handleScan);
   server.on("/apoff$", handleAPOff);
   server.on("/divertmode$", handleDivertMode);
+  server.on("/shaper$", handleCurrentShaper);
   server.on("/emoncms/describe$", handleDescribe);
   server.on("/rfid/add$", handleAddRFID);
 
