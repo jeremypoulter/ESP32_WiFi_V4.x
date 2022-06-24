@@ -51,6 +51,7 @@ class CurrentShaperTask: public MicroTasks::Task
     static bool isActive();
 
     static void notifyConfigChanged(bool enabled, uint32_t max_pwr);
+    static void setState(bool state);
 };
 
 

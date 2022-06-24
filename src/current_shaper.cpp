@@ -99,6 +99,16 @@ void CurrentShaperTask::setState(bool state) {
 	}
 }
 
+// temporary change Current Shaper state without changing configuration 
+void CurrentShaperTask::setState(bool state) {
+	if (instance) {
+		instance -> _enabled = state;
+		StaticJsonDocument<128> event;
+		event["shaper"]  = state?1:0;
+		event_send(event);
+	}
+}
+
 void CurrentShaperTask::shapeCurrent() {
 	if (instance) {
 		instance -> _chg_cur = round((_max_pwr - _live_pwr + evse.getAmps()) / evse.getVoltage());
