@@ -67,9 +67,7 @@ void mqttmsg_callback(MongooseString topic, MongooseString payload) {
   }
   else if (topic_string == mqtt_live_pwr)
   {
-      CurrentShaperTask *CurrentShaperTask;
-      CurrentShaperTask = CurrentShaperTask::instance;
-      CurrentShaperTask->setLivePwr(payload_str.toInt());
+      CurrentShaperTask::setLivePwr(payload_str.toInt());
       DBUGF("shaper: available power:%dW", shaper.getAvlPwr());
   }
   else if (topic_string == mqtt_vrms)

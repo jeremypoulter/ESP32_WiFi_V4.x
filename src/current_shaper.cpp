@@ -78,14 +78,14 @@ void CurrentShaperTask::notifyConfigChanged( bool enabled, uint32_t max_pwr) {
 void CurrentShaperTask::setMaxPwr(int max_pwr) {
 	if (instance) {
 		instance -> _max_pwr = max_pwr;
-		shapeCurrent();
+		instance -> shapeCurrent();
 	}
 }
 
 void CurrentShaperTask::setLivePwr(int live_pwr) {
 	if (instance) {
 		instance -> _live_pwr = live_pwr;
-		shapeCurrent();
+		instance -> shapeCurrent();
 	}
 }
 
@@ -100,13 +100,40 @@ void CurrentShaperTask::setState(bool state) {
 }
 
 void CurrentShaperTask::shapeCurrent() {
-	_chg_cur = round((_max_pwr - _live_pwr + evse.getAmps()) / evse.getVoltage());
-	_changed = true; // update claim in the loop
+	if (instance) {
+		instance -> _chg_cur = round((_max_pwr - _live_pwr + evse.getAmps()) / evse.getVoltage());
+		instance -> _changed = true; // update claim in the loop
+	}
 }
 
 int CurrentShaperTask::getMaxPwr() {
-	return _max_pwr;
+	if (instance) {
+		return instance -> _max_pwr;
+	}
+	else return 0;
 }
 int CurrentShaperTask::getLivePwr() {
-	return _live_pwr;
+	if (instance) {
+		return instance -> _live_pwr;
+	}
+	else return 0;
+}
+uint8_t CurrentShaperTask::getChgCur() {
+	if (instance) {
+		return instance -> _chg_cur;
+	}
+	else return 0;
+}
+bool CurrentShaperTask::getState() {
+	if (instance) {
+		return instance -> _enabled;
+	}
+	else return 0;
+}
+
+bool CurrentShaperTask::isActive() {
+	if (instance) {
+		return instance -> _evse->clientHasClaim(EvseClient_OpenEVSE_Shaper);
+    }
+	else return false;
 }

@@ -21,13 +21,13 @@
 class CurrentShaperTask: public MicroTasks::Task
 {
   private:
-     EvseManager *_evse;
+    EvseManager *_evse;
     bool         _enabled;
     bool         _changed;
-    uint32_t     _timer;
     int          _max_pwr;   // total current available from the grid
     int          _live_pwr;   // current available to EVSE
     uint8_t      _chg_cur;   // calculated charge current to claim
+    uint32_t     _timer;
   
   protected:
     void setup();
@@ -41,17 +41,16 @@ class CurrentShaperTask: public MicroTasks::Task
     static CurrentShaperTask *instance;
     void begin(EvseManager &evse);
 
-     void setMaxPwr(int max_pwr);
-     void setLivePwr(int live_pwr);
-     
-     int getMaxPwr();
-     int getLivePwr();
-
-     bool isActive() {
-      return _evse->clientHasClaim(EvseClient_OpenEVSE_Shaper);
-    }
-    static void notifyConfigChanged(bool enabled, uint32_t max_pwr);
+    static void setMaxPwr(int max_pwr);
+    static void setLivePwr(int live_pwr);
     static void setState(bool state);
+    static bool getState();
+    static int getMaxPwr();
+    static int getLivePwr();
+    static uint8_t getChgCur();
+    static bool isActive();
+
+    static void notifyConfigChanged(bool enabled, uint32_t max_pwr);
 };
 
 
