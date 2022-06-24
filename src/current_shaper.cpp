@@ -25,21 +25,19 @@ unsigned long CurrentShaperTask::loop(MicroTasks::WakeReason reason) {
 				_timer = millis();
 				evse.claim(EvseClient_OpenEVSE_Shaper,EvseManager_Priority_Limit, props);
 				StaticJsonDocument<128> event;
-				event["shaper_enabled"]  = true;
-				event["shaper_max_pwr"]  = _max_pwr;
+				event["shaper"]  = 1;
 				event["shaper_live_pwr"] = _live_pwr;
 				event["shaper_cur"]	     = _chg_cur;
 				event_send(event);
 			}
 			if (millis() - _timer > EVSE_SHAPER_FAILSAFE_TIME) {
 				//available power has not been updated since EVSE_SHAPER_FAILSAFE_TIME, pause charge
-				DBUGF("MQTT avl_pwr has not bee updated in time, pausing charge");
+				DBUGF("MQTT avl_pwr has not been updated in time, pausing charge");
 				props.setState(EvseState::Disabled);
 				evse.claim(EvseClient_OpenEVSE_Shaper,EvseManager_Priority_Limit, props);
 
 				StaticJsonDocument<128> event;
-				event["shaper_enabled"]  = true;
-				event["shaper_max_pwr"]  = _max_pwr;
+				event["shaper"]  = 1;
 				event["shaper_live_pwr"] = _live_pwr;
 				event["shaper_cur"]	     = _chg_cur;
 				event_send(event);
@@ -59,6 +57,9 @@ void CurrentShaperTask::begin(EvseManager &evse) {
 	this -> _chg_cur = 0; 
 	instance = this;
 	MicroTask.startTask(this);
+	StaticJsonDocument<128> event;
+	event["shaper"]  = 1;
+	event_send(event);
 }
 
 void CurrentShaperTask::notifyConfigChanged( bool enabled, uint32_t max_pwr) {
@@ -68,7 +69,7 @@ void CurrentShaperTask::notifyConfigChanged( bool enabled, uint32_t max_pwr) {
 		instance->_max_pwr = max_pwr;
 		if (!enabled) evse.release(EvseClient_OpenEVSE_Shaper);
 		StaticJsonDocument<128> event;
-		event["shaper_enabled"] = enabled;
+		event["shaper"] = enabled;
 		event["shaper_max_pwr"] = max_pwr;
 		event_send(event);
     }
@@ -85,6 +86,16 @@ void CurrentShaperTask::setLivePwr(int live_pwr) {
 	if (instance) {
 		instance -> _live_pwr = live_pwr;
 		shapeCurrent();
+	}
+}
+
+// temporary change Current Shaper state without changing configuration 
+void CurrentShaperTask::setState(bool state) {
+	if (instance) {
+		instance -> _enabled = state;
+		StaticJsonDocument<128> event;
+		event["shaper"]  = state?1:0;
+		event_send(event);
 	}
 }
 
