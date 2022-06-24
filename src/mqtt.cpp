@@ -125,9 +125,9 @@ void mqttmsg_callback(MongooseString topic, MongooseString payload) {
   {
     byte newshaper = payload_str.toInt();
     if (newshaper==0) {
-      CurrentShaperTask::disable();
+      CurrentShaperTask::setState(0);
     } else if (newshaper==1) {
-      CurrentShaperTask::enable();
+      CurrentShaperTask::setState(1);
     }
   }
   // Manual Override

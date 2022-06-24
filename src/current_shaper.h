@@ -6,7 +6,7 @@
 #define EVSE_SHAPER_LOOP_TIME 2000
 #endif 
 #ifndef EVSE_SHAPER_FAILSAFE_TIME
-#define EVSE_SHAPER_FAILSAFE_TIME 60000
+#define EVSE_SHAPER_FAILSAFE_TIME 360000
 #endif 
 
 #include "emonesp.h"
@@ -51,8 +51,7 @@ class CurrentShaperTask: public MicroTasks::Task
       return _evse->clientHasClaim(EvseClient_OpenEVSE_Shaper);
     }
     static void notifyConfigChanged(bool enabled, uint32_t max_pwr);
-    static void enable();
-    static void disable();
+    static void setState(bool state);
 };
 
 
