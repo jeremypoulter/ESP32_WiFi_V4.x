@@ -251,7 +251,7 @@ void config_changed(String name)
     DBUGVAR(config_charge_mode());
     divertmode_update((config_divert_enabled() && 1 == config_charge_mode()) ? DIVERT_MODE_ECO : DIVERT_MODE_NORMAL);
   } else if(name.startsWith("current_shaper_")) {
-    shaper.notifyConfigChanged(config_current_shaper_enabled(),current_shaper_max_pwr);
+    shaper.notifyConfigChanged(config_current_shaper_enabled()?1:0,current_shaper_max_pwr);
   } else if(name == "tesla_vehicle_id") {
     teslaClient.setVehicleId(tesla_vehicle_id);
   } else if(name.startsWith("tesla_")) {
