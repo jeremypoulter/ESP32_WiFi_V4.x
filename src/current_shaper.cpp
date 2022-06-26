@@ -1,6 +1,7 @@
 #include "current_shaper.h"
 
-CurrentShaperTask *CurrentShaperTask::instance = NULL;
+//global instance
+CurrentShaperTask shaper;
 
 CurrentShaperTask::CurrentShaperTask() : MicroTasks::Task() {
 	_changed = false;
@@ -8,7 +9,8 @@ CurrentShaperTask::CurrentShaperTask() : MicroTasks::Task() {
 }
 
 CurrentShaperTask::~CurrentShaperTask() {
-	instance = NULL;
+	// should be useless but just in case
+	evse.release(EvseClient_OpenEVSE_Shaper);
 }
 
 void CurrentShaperTask::setup() {
@@ -55,7 +57,6 @@ void CurrentShaperTask::begin(EvseManager &evse) {
 	this -> _max_pwr = current_shaper_max_pwr; 
 	this -> _live_pwr = 0;
 	this -> _chg_cur = 0; 
-	instance = this;
 	MicroTask.startTask(this);
 	StaticJsonDocument<128> event;
 	event["shaper"]  = 1;
@@ -63,77 +64,52 @@ void CurrentShaperTask::begin(EvseManager &evse) {
 }
 
 void CurrentShaperTask::notifyConfigChanged( bool enabled, uint32_t max_pwr) {
-    if (instance) {
-		DBUGF("CurrentShaper: got config changed");
-        instance->_enabled = enabled;
-		instance->_max_pwr = max_pwr;
-		if (!enabled) evse.release(EvseClient_OpenEVSE_Shaper);
-		StaticJsonDocument<128> event;
-		event["shaper"] = enabled;
-		event["shaper_max_pwr"] = max_pwr;
-		event_send(event);
-    }
+	DBUGF("CurrentShaper: got config changed");
+	_enabled = enabled;
+	_max_pwr = max_pwr;
+	if (!enabled) evse.release(EvseClient_OpenEVSE_Shaper);
+	StaticJsonDocument<128> event;
+	event["shaper"] = enabled;
+	event["shaper_max_pwr"] = max_pwr;
+	event_send(event);
 }
 
 void CurrentShaperTask::setMaxPwr(int max_pwr) {
-	if (instance) {
-		instance -> _max_pwr = max_pwr;
-		instance -> shapeCurrent();
-	}
+		_max_pwr = max_pwr;
+		shapeCurrent();
 }
 
 void CurrentShaperTask::setLivePwr(int live_pwr) {
-	if (instance) {
-		instance -> _live_pwr = live_pwr;
-		instance -> shapeCurrent();
-	}
+	_live_pwr = live_pwr;
+	shapeCurrent();
 }
 
 // temporary change Current Shaper state without changing configuration 
 void CurrentShaperTask::setState(bool state) {
-	if (instance) {
-		instance -> _enabled = state;
-		StaticJsonDocument<128> event;
-		event["shaper"]  = state?1:0;
-		event_send(event);
-	}
+	_enabled = state;
+	StaticJsonDocument<128> event;
+	event["shaper"]  = state?1:0;
+	event_send(event);
 }
 
 void CurrentShaperTask::shapeCurrent() {
-	if (instance) {
-		instance -> _chg_cur = round((_max_pwr - _live_pwr + evse.getAmps()) / evse.getVoltage());
-		instance -> _changed = true; // update claim in the loop
-	}
+	_chg_cur = round((_max_pwr - _live_pwr + evse.getAmps()) / evse.getVoltage());
+	_changed = true; // update claim in the loop
 }
 
 int CurrentShaperTask::getMaxPwr() {
-	if (instance) {
-		return instance -> _max_pwr;
-	}
-	else return 0;
+	return _max_pwr;
 }
 int CurrentShaperTask::getLivePwr() {
-	if (instance) {
-		return instance -> _live_pwr;
-	}
-	else return 0;
+	return _live_pwr;
 }
 uint8_t CurrentShaperTask::getChgCur() {
-	if (instance) {
-		return instance -> _chg_cur;
-	}
-	else return 0;
+	return _chg_cur;
 }
 bool CurrentShaperTask::getState() {
-	if (instance) {
-		return instance -> _enabled;
-	}
-	else return 0;
+	return _enabled;
 }
 
 bool CurrentShaperTask::isActive() {
-	if (instance) {
-		return instance -> _evse->clientHasClaim(EvseClient_OpenEVSE_Shaper);
-    }
-	else return false;
+	return _evse->clientHasClaim(EvseClient_OpenEVSE_Shaper);
 }

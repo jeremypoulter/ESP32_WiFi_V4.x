@@ -67,7 +67,7 @@ void mqttmsg_callback(MongooseString topic, MongooseString payload) {
   }
   else if (topic_string == mqtt_live_pwr)
   {
-      CurrentShaperTask::setLivePwr(payload_str.toInt());
+      shaper.setLivePwr(payload_str.toInt());
       DBUGF("shaper: available power:%dW", shaper.getAvlPwr());
   }
   else if (topic_string == mqtt_vrms)
@@ -123,9 +123,9 @@ void mqttmsg_callback(MongooseString topic, MongooseString payload) {
   {
     byte newshaper = payload_str.toInt();
     if (newshaper==0) {
-      CurrentShaperTask::setState(0);
+      shaper.setState(0);
     } else if (newshaper==1) {
-      CurrentShaperTask::setState(1);
+      shaper.setState(1);
     }
   }
   // Manual Override

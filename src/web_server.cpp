@@ -405,7 +405,7 @@ handleCurrentShaper(MongooseHttpServerRequest *request) {
   if(false == requestPreProcess(request, response, CONTENT_TYPE_TEXT)) {
     return;
   }
-  CurrentShaperTask::setState(request->getParam("shaper").toInt() == 1? true: false);
+  shaper.setState(request->getParam("shaper").toInt() == 1? true: false);
 
   response->setCode(200);
   response->print("Current Shaper state changed");
@@ -640,9 +640,9 @@ handleStatus(MongooseHttpServerRequest *request) {
   doc["charge_rate"] = charge_rate;
   doc["divert_update"] = (millis() - lastUpdate) / 1000;
 
-  doc["shaper"] = CurrentShaperTask::isActive();
-  doc["shaper_live_pwr"] = CurrentShaperTask::getLivePwr();
-  doc["shaper_chg_cur"] = CurrentShaperTask::getChgCur();
+  doc["shaper"] = shaper.isActive();
+  doc["shaper_live_pwr"] = shaper.getLivePwr();
+  doc["shaper_chg_cur"] = shaper.getChgCur();
 
   doc["service_level"] = static_cast<uint8_t>(evse.getActualServiceLevel());
 

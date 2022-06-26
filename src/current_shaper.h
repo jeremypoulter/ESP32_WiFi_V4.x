@@ -38,20 +38,20 @@ class CurrentShaperTask: public MicroTasks::Task
   public:
     CurrentShaperTask();
     ~CurrentShaperTask();
-    static CurrentShaperTask *instance;
     void begin(EvseManager &evse);
 
-    static void setMaxPwr(int max_pwr);
-    static void setLivePwr(int live_pwr);
-    static void setState(bool state);
-    static bool getState();
-    static int getMaxPwr();
-    static int getLivePwr();
-    static uint8_t getChgCur();
-    static bool isActive();
+    void setMaxPwr(int max_pwr);
+    void setLivePwr(int live_pwr);
+    void setState(bool state);
+    bool getState();
+    int getMaxPwr();
+    int getLivePwr();
+    uint8_t getChgCur();
+    bool isActive();
 
-    static void notifyConfigChanged(bool enabled, uint32_t max_pwr);
+    void notifyConfigChanged(bool enabled, uint32_t max_pwr);
 };
 
+extern CurrentShaperTask shaper;
 
 #endif // CURRENT_SHAPER

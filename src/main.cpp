@@ -87,8 +87,6 @@ String serial;
 
 ArduinoOcppTask ocpp = ArduinoOcppTask();
 
-CurrentShaperTask shaper = CurrentShaperTask();
-
 
 static void hardware_setup();
 
