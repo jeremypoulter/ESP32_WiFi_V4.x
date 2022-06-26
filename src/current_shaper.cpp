@@ -87,6 +87,11 @@ void CurrentShaperTask::setLivePwr(int live_pwr) {
 // temporary change Current Shaper state without changing configuration 
 void CurrentShaperTask::setState(bool state) {
 	_enabled = state;
+	if (!_enabled) {
+		//remove claim
+		evse.release(EvseClient_OpenEVSE_Shaper);
+
+	}
 	StaticJsonDocument<128> event;
 	event["shaper"]  = state?1:0;
 	event_send(event);
