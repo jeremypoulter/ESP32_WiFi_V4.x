@@ -408,6 +408,19 @@ config_save_ohm(bool enable, String qohm)
 }
 
 void
+config_save_current_shaper(bool enable, int maxpwr, String livepwr)
+{
+  uint32_t newflags = flags & ~CONFIG_SERVICE_CUR_SHAPER;
+  if(enable) {
+    newflags |= CONFIG_SERVICE_CUR_SHAPER;
+  }
+
+  config.set("mqtt_live_pwr", livepwr);
+  config.set("current_shaper_max_pwr", maxpwr);
+  config.commit();
+}
+
+void
 config_save_rfid(bool enable, String storage){
   uint32_t newflags = flags & ~CONFIG_RFID;
   if(enable) {

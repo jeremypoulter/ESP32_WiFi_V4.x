@@ -411,7 +411,29 @@ handleCurrentShaper(MongooseHttpServerRequest *request) {
   response->print("Current Shaper state changed");
   request->send(response);
 
-  DBUGF("Divert Mode: %d", divertmode);
+  DBUGF("CurrentShaper: %d", shaper.getState());
+}
+
+// -------------------------------------------------------------------
+// Save current shaper settings
+// url: /saveshaper
+// -------------------------------------------------------------------
+void
+handleSaveCurrentShaper(MongooseHttpServerRequest *request) {
+  MongooseHttpServerResponseStream *response;
+  if(false == requestPreProcess(request, response, CONTENT_TYPE_TEXT)) {
+    return;
+  }
+
+  bool qshaperenabled = isPositive(request->getParam("enable"));
+  int qshapermaxpwr = request->getParam("maxpwr").toInt();
+  String qshaperlivepwr =  request->getParam("livepwr");
+
+  config_save_current_shaper(qshaperenabled, qshapermaxpwr, qshaperlivepwr);
+
+  response->setCode(200);
+  response->print("saved");
+  request->send(response);
 }
 
 
@@ -1123,6 +1145,7 @@ web_server_setup() {
   server.on("/apoff$", handleAPOff);
   server.on("/divertmode$", handleDivertMode);
   server.on("/shaper$", handleCurrentShaper);
+  server.on("/saveshaper$", handleSaveCurrentShaper);
   server.on("/emoncms/describe$", handleDescribe);
   server.on("/rfid/add$", handleAddRFID);
 

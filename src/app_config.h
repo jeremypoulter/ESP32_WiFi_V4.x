@@ -197,6 +197,11 @@ extern void config_save_wifi(String qsid, String qpass);
 extern void config_save_ohm(bool enable, String qohm);
 
 // -------------------------------------------------------------------
+// Save the Current Shaper settings
+// -------------------------------------------------------------------
+extern void config_save_current_shaper(bool enable, int maxpwr, String livepwr);
+
+// -------------------------------------------------------------------
 // Save RFID settings
 // -------------------------------------------------------------------
 extern void config_save_rfid(bool enable, String storage);
