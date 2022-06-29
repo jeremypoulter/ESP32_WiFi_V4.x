@@ -418,6 +418,12 @@ config_save_current_shaper(bool enable, int maxpwr, String livepwr)
   config.set("mqtt_live_pwr", livepwr);
   config.set("current_shaper_max_pwr", maxpwr);
   config.commit();
+
+  // please fix this: I'm pretty sure it's not the way to do here, but I haven't got clear the subscription thing probably linked to this :)
+  // so forcing config_cha nged here:
+  config_changed("mqtt_live_pwr");
+  config_changed("current_shaper_max_pwr");
+
 }
 
 void
