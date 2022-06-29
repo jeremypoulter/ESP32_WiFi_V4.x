@@ -355,6 +355,11 @@ app.post("/saveohmkey", function (req, res) {
   res.status(500).send("Not implemented");
 });
 
+app.post("/saveshaper", function (req, res) {
+  res.header("Cache-Control", "no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0");
+  res.status(500).send("Not implemented");
+});
+
 app.post("/reset", function (req, res) {
   res.header("Cache-Control", "no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0");
   res.status(500).send("Not implemented");
@@ -378,6 +383,11 @@ app.post("/apoff", function (req, res) {
 });
 
 app.post("/divertmode", function (req, res) {
+  res.header("Cache-Control", "no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0");
+  res.status(500).send("Not implemented");
+});
+
+app.post("/shaper", function (req, res) {
   res.header("Cache-Control", "no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0");
   res.status(500).send("Not implemented");
 });
