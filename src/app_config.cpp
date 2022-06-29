@@ -414,7 +414,7 @@ config_save_current_shaper(bool enable, int maxpwr, String livepwr)
   if(enable) {
     newflags |= CONFIG_SERVICE_CUR_SHAPER;
   }
-  config.set("current_shaper_enable",enable);
+  config.set("flags", newflags);
   config.set("mqtt_live_pwr", livepwr);
   config.set("current_shaper_max_pwr", maxpwr);
   config.commit();
