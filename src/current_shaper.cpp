@@ -22,7 +22,13 @@ unsigned long CurrentShaperTask::loop(MicroTasks::WakeReason reason) {
 			EvseProperties props;
 			if (_changed) {
 				props.setChargeCurrent(_chg_cur);
-				props.setState(EvseState::None);
+				if (_chg_cur < evse.getMinCurrent() ) {
+					// pause temporary, not enough amps available
+					props.setState(EvseState::Disabled);
+				}
+				else {
+					props.setState(EvseState::None);
+				}
 				_changed = false;
 				_timer = millis();
 				evse.claim(EvseClient_OpenEVSE_Shaper,EvseManager_Priority_Limit, props);
@@ -37,7 +43,6 @@ unsigned long CurrentShaperTask::loop(MicroTasks::WakeReason reason) {
 				DBUGF("MQTT avl_pwr has not been updated in time, pausing charge");
 				props.setState(EvseState::Disabled);
 				evse.claim(EvseClient_OpenEVSE_Shaper,EvseManager_Priority_Limit, props);
-
 				StaticJsonDocument<128> event;
 				event["shaper"]  = 1;
 				event["shaper_live_pwr"] = _live_pwr;
