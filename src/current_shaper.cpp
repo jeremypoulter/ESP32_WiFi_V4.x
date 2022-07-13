@@ -35,6 +35,7 @@ unsigned long CurrentShaperTask::loop(MicroTasks::WakeReason reason) {
 				StaticJsonDocument<128> event;
 				event["shaper"]  = 1;
 				event["shaper_live_pwr"] = _live_pwr;
+				event["shaper_max_pwr"] = _max_pwr;
 				event["shaper_cur"]	     = _chg_cur;
 				event_send(event);
 			}
@@ -46,6 +47,7 @@ unsigned long CurrentShaperTask::loop(MicroTasks::WakeReason reason) {
 				StaticJsonDocument<128> event;
 				event["shaper"]  = 1;
 				event["shaper_live_pwr"] = _live_pwr;
+				event["shaper_max_pwr"] = _max_pwr;
 				event["shaper_cur"]	     = _chg_cur;
 				event_send(event);
 			}
@@ -103,7 +105,7 @@ void CurrentShaperTask::setState(bool state) {
 }
 
 void CurrentShaperTask::shapeCurrent() {
-	_chg_cur = round((_max_pwr - _live_pwr + evse.getAmps()) / evse.getVoltage());
+	_chg_cur = round(((_max_pwr - _live_pwr) / evse.getVoltage()) + (evse.getAmps()));
 	_changed = true; // update claim in the loop
 }
 
