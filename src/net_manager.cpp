@@ -34,7 +34,7 @@
 #endif
 
 #ifndef ACCESS_POINT_AUTO_STOP_TIMEOUT
-#define ACCESS_POINT_AUTO_STOP_TIMEOUT (10 * 1000)
+#define ACCESS_POINT_AUTO_STOP_TIMEOUT (20 * 1000)
 #endif
 
 NetManagerTask *NetManagerTask::_instance = NULL;
