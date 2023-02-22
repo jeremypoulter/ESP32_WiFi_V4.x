@@ -322,9 +322,6 @@ handleScan(MongooseHttpServerRequest *request) {
       json += "}";
     }
     WiFi.scanDelete();
-    if(WiFi.scanComplete() == -2){
-      WiFi.scanNetworks(true, false, true);
-    }
   }
   json += "]";
   response->print(json);
