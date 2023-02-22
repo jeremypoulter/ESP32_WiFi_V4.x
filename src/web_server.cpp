@@ -306,7 +306,7 @@ handleScan(MongooseHttpServerRequest *request) {
   String json = "[";
   int n = WiFi.scanComplete();
   if(n == -2) {
-    WiFi.scanNetworks(true, false);
+    WiFi.scanNetworks(true, false, true);
   } else if(n) {
     for (int i = 0; i < n; ++i) {
       if(i) json += ",";
@@ -323,7 +323,7 @@ handleScan(MongooseHttpServerRequest *request) {
     }
     WiFi.scanDelete();
     if(WiFi.scanComplete() == -2){
-      WiFi.scanNetworks(true);
+      WiFi.scanNetworks(true, false, true);
     }
   }
   json += "]";
