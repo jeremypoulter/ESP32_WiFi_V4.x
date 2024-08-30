@@ -184,8 +184,8 @@ void LedManagerTask::setup()
   ws2812fx.setColor(BLACK);
   ws2812fx.setMode(FX_MODE_STATIC);
   //ws2812fx.setBrightness(this->brightness);
-  DEBUG.printf("Brightness: %d ", this->brightness);
-  DEBUG.printf("Brightness: %d ", brightness);
+  DBUGF("Brightness: %d ", this->brightness);
+  DBUGF("Brightness: %d ", brightness);
   ws2812fx.start();
 #endif
 
@@ -747,11 +747,11 @@ void LedManagerTask::setBrightness(uint8_t brightness)
   MicroTask.wakeTask(this);
 }
 
-LedManagerTask ledManager;
-
 #if defined(NEO_PIXEL_PIN) && defined(NEO_PIXEL_LENGTH) && defined(ENABLE_WS2812FX)
-extern void ledManager_loop()
+void LedManagerTask::service()
 {
   ws2812fx.service();
 }
 #endif
+
+LedManagerTask ledManager;
