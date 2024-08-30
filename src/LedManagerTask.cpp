@@ -36,6 +36,17 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(NEO_PIXEL_LENGTH, NEO_PIXEL_PIN, NEO
 #elif defined(NEO_PIXEL_PIN) && defined(NEO_PIXEL_LENGTH) && defined(ENABLE_WS2812FX)
 #include <WS2812FX.h>
 WS2812FX ws2812fx = WS2812FX(NEO_PIXEL_LENGTH, NEO_PIXEL_PIN, NEO_GRB + NEO_KHZ800);
+
+class LedAnimatorTask : public MicroTasks::Task
+{
+  public:
+    void setup() {
+    }
+    unsigned long loop(MicroTasks::WakeReason reason) {
+      ws2812fx.service();
+      return 40;
+    }
+} animator;
 #endif
 
 #define FADE_STEP         16
@@ -186,7 +197,9 @@ void LedManagerTask::setup()
   //ws2812fx.setBrightness(this->brightness);
   DBUGF("Brightness: %d ", this->brightness);
   DBUGF("Brightness: %d ", brightness);
+
   ws2812fx.start();
+  MicroTask.startTask(&animator);
 #endif
 
 #if defined(RED_LED) && defined(GREEN_LED) && defined(BLUE_LED)
@@ -746,12 +759,5 @@ void LedManagerTask::setBrightness(uint8_t brightness)
   // Wake the task to refresh the state
   MicroTask.wakeTask(this);
 }
-
-#if defined(NEO_PIXEL_PIN) && defined(NEO_PIXEL_LENGTH) && defined(ENABLE_WS2812FX)
-void LedManagerTask::service()
-{
-  ws2812fx.service();
-}
-#endif
 
 LedManagerTask ledManager;
