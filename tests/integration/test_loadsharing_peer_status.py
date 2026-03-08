@@ -451,6 +451,116 @@ class TestPeerStatusIngestion:
             f"Peer {peer_host} should have status after ingestion"
         )
 
+    def test_peer_status_bidirectional_after_add(self, multi_instance_group):
+        """
+        Test: After A adds B, reciprocal sync means B also tracks A.
+
+        When instance 0 adds instance 1 as a peer, the full-group sync
+        tells instance 1 to add instance 0's hostname.  This verifies
+        that instance 1's /loadsharing/status eventually shows status
+        data for instance 0 (or at least lists it as a joined peer).
+        """
+        pairs = multi_instance_group(2)
+        native_url_0 = pairs[0]["native_url"]
+        native_url_1 = pairs[1]["native_url"]
+        peer_host_1 = f"localhost:{pairs[1]['native_port']}"
+
+        # Instance 0 adds instance 1
+        response = add_peer_to_group(native_url_0, peer_host_1)
+        assert response.status_code == 200
+
+        # Give reciprocal sync time to propagate
+        time.sleep(3)
+
+        # Instance 1 should now have at least one joined peer
+        # (the local hostname of instance 0, synced via reciprocal add)
+        response = requests.get(
+            f"{native_url_1}/loadsharing/status", timeout=10
+        )
+        assert response.status_code == 200
+
+        data = response.json()
+        peers = data.get("peers", [])
+        joined_peers = [
+            p for p in peers if p.get("joined") is True
+        ]
+        # Should have at least the synced peer (instance 0's mDNS hostname)
+        # plus the local node itself
+        assert len(joined_peers) >= 2, (
+            f"Instance 1 should have >=2 joined peers after reciprocal sync "
+            f"(self + instance 0). Got {len(joined_peers)}: {joined_peers}"
+        )
+
+    @pytest.mark.parametrize("num_instances", [3, 4])
+    def test_peer_status_full_group_bidirectional(
+        self, multi_instance_group, num_instances
+    ):
+        """
+        Test: Full group sync gives every instance awareness of every other.
+
+        Instance 0 adds instances 1..N-1.  After propagation, instance 1
+        should be able to ingest status from instance 2 (which it learned
+        about via sync, not via direct user action).
+
+        Parametrized for 3 and 4 instances to exercise multi-hop sync.
+        """
+        pairs = multi_instance_group(num_instances)
+        native_url_0 = pairs[0]["native_url"]
+
+        # Instance 0 adds all others
+        for i in range(1, num_instances):
+            peer_host = f"localhost:{pairs[i]['native_port']}"
+            response = add_peer_to_group(native_url_0, peer_host)
+            assert response.status_code == 200
+            time.sleep(1)
+
+        # Allow sync propagation
+        time.sleep(3)
+
+        # Instance 1 should know about instance 2 via group sync.
+        # Verify instance 1 eventually shows instance 2's host as joined.
+        peer_host_2 = f"localhost:{pairs[2]['native_port']}"
+        deadline = time.time() + 20
+        found = False
+        while time.time() < deadline:
+            try:
+                response = requests.get(
+                    f"{pairs[1]['native_url']}/loadsharing/status", timeout=5
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    peers = data.get("peers", [])
+                    for p in peers:
+                        if (
+                            p.get("host") == peer_host_2
+                            and p.get("joined") is True
+                        ):
+                            found = True
+                            break
+            except requests.RequestException:
+                pass
+            if found:
+                break
+            time.sleep(1)
+
+        assert found, (
+            f"Instance 1 should have synced peer {peer_host_2} with "
+            f"joined=true (via full-group sync from instance 0)."
+        )
+
+        # Now wait for instance 1 to ingest status from instance 2
+        peer_with_status = wait_for_peer_status(
+            pairs[1]["native_url"], peer_host_2, timeout=45
+        )
+        assert peer_with_status is not None, (
+            f"Instance 1 did not ingest status from synced peer "
+            f"{peer_host_2} within 45s."
+        )
+        status = peer_with_status.get("status", {})
+        assert "amp" in status and "state" in status, (
+            f"Ingested status from synced peer missing fields: {status}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Tests: Multi-peer status tracking

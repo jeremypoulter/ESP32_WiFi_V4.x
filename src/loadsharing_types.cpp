@@ -12,9 +12,11 @@
 #include "debug.h"
 #include "loadsharing_types.h"
 #include "loadsharing_discovery_task.h"
+#include "app_config.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
+#include <espal.h>
 
 // Global instance
 LoadSharingGroupState loadSharingGroupState;
@@ -35,6 +37,54 @@ void LoadSharingGroupState::ensurePeerEntry(const String& hostname) {
   LoadSharingPeer newPeer;
   newPeer.setHost(hostname);
   _peers.push_back(newPeer);
+}
+
+void LoadSharingGroupState::syncAddPeerOnRemote(const String& targetHost, const String& hostToAdd) {
+  String url = "http://" + targetHost + "/loadsharing/peers";
+
+  DynamicJsonDocument syncDoc(256);
+  syncDoc["host"] = hostToAdd;
+  syncDoc["reciprocal"] = false;
+  String syncBody;
+  serializeJson(syncDoc, syncBody);
+
+  DBUGF("LoadSharingGroupState: Sync POST %s: %s", url.c_str(), syncBody.c_str());
+
+  MongooseHttpClientRequest *req = _httpClient.beginRequest(url.c_str());
+  req->setMethod(HTTP_POST);
+  req->setContentType("application/json");
+  req->setContent(syncBody.c_str());
+
+  req->onResponse([targetHost](MongooseHttpClientResponse *resp) {
+    DBUGF("LoadSharingGroupState: Sync POST to %s responded %d",
+          targetHost.c_str(), resp->respCode());
+  });
+
+  req->onClose([targetHost]() {
+    DBUGF("LoadSharingGroupState: Sync POST to %s connection closed", targetHost.c_str());
+  });
+
+  _httpClient.send(req);
+}
+
+void LoadSharingGroupState::syncRemovePeerOnRemote(const String& targetHost, const String& hostToRemove) {
+  String url = "http://" + targetHost + "/loadsharing/peers/" + hostToRemove + "?reciprocal=false";
+
+  DBUGF("LoadSharingGroupState: Sync DELETE %s", url.c_str());
+
+  MongooseHttpClientRequest *req = _httpClient.beginRequest(url.c_str());
+  req->setMethod(HTTP_DELETE);
+
+  req->onResponse([targetHost](MongooseHttpClientResponse *resp) {
+    DBUGF("LoadSharingGroupState: Sync DELETE to %s responded %d",
+          targetHost.c_str(), resp->respCode());
+  });
+
+  req->onClose([targetHost]() {
+    DBUGF("LoadSharingGroupState: Sync DELETE to %s connection closed", targetHost.c_str());
+  });
+
+  _httpClient.send(req);
 }
 
 void LoadSharingGroupState::onDiscoveryComplete() {
@@ -72,7 +122,13 @@ void LoadSharingGroupState::onDiscoveryComplete() {
   }
 }
 
-bool LoadSharingGroupState::addGroupPeer(const String& hostname) {
+bool LoadSharingGroupState::addGroupPeer(const String& hostname, bool reciprocal) {
+  // Block adding the local device as a remote peer
+  if (isLocalHost(hostname)) {
+    DBUGF("LoadSharingGroupState: Cannot add local device as peer: %s", hostname.c_str());
+    return false;
+  }
+
   // Check for duplicates
   for (const auto& peer : _groupPeers) {
     if (peer == hostname) {
@@ -92,10 +148,37 @@ bool LoadSharingGroupState::addGroupPeer(const String& hostname) {
         hostname.c_str(), (unsigned int)_groupPeers.size());
 
   notifyPeerChange();
+
+  // Sync the full group: tell every member about every other member
+  if (reciprocal) {
+    String localHost = getLocalHostname();
+
+    // Tell the new peer to add us and every existing peer
+    syncAddPeerOnRemote(hostname, localHost);
+    for (const auto& existing : _groupPeers) {
+      if (existing != hostname) {
+        syncAddPeerOnRemote(hostname, existing);
+      }
+    }
+
+    // Tell every existing peer to add the new peer
+    for (const auto& existing : _groupPeers) {
+      if (existing != hostname) {
+        syncAddPeerOnRemote(existing, hostname);
+      }
+    }
+  }
+
   return true;
 }
 
-bool LoadSharingGroupState::removeGroupPeer(const String& hostname) {
+bool LoadSharingGroupState::removeGroupPeer(const String& hostname, bool reciprocal) {
+  // Block removal of the local device
+  if (isLocalHost(hostname)) {
+    DBUGF("LoadSharingGroupState: Cannot remove local device from group: %s", hostname.c_str());
+    return false;
+  }
+
   for (size_t i = 0; i < _groupPeers.size(); i++) {
     if (_groupPeers[i] == hostname) {
       _groupPeers.erase(_groupPeers.begin() + i);
@@ -114,6 +197,24 @@ bool LoadSharingGroupState::removeGroupPeer(const String& hostname) {
             hostname.c_str(), (unsigned int)_groupPeers.size());
 
       notifyPeerChange();
+
+      // Sync the full group: tell every remaining member to drop the removed
+      // peer, and tell the removed peer to drop every remaining member and us
+      if (reciprocal) {
+        String localHost = getLocalHostname();
+
+        // Tell the removed peer to drop us and every remaining peer
+        syncRemovePeerOnRemote(hostname, localHost);
+        for (const auto& remaining : _groupPeers) {
+          syncRemovePeerOnRemote(hostname, remaining);
+        }
+
+        // Tell every remaining peer to drop the removed peer
+        for (const auto& remaining : _groupPeers) {
+          syncRemovePeerOnRemote(remaining, hostname);
+        }
+      }
+
       return true;
     }
   }
@@ -131,15 +232,56 @@ bool LoadSharingGroupState::isGroupPeer(const String& hostname) const {
   return false;
 }
 
+bool LoadSharingGroupState::isLocalHost(const String& hostname) const {
+  // Compare against local hostname (with and without .local suffix)
+  String localMdns = esp_hostname + String(".local");
+  if (hostname.equalsIgnoreCase(esp_hostname) ||
+      hostname.equalsIgnoreCase(localMdns)) {
+    return true;
+  }
+  // Compare against device ID
+  if (hostname == ESPAL.getLongId()) {
+    return true;
+  }
+  return false;
+}
+
+String LoadSharingGroupState::getLocalHostname() const {
+  return esp_hostname + String(".local");
+}
+
 std::vector<LoadSharingGroupState::PeerInfo> LoadSharingGroupState::getAllPeers(
     bool includeDiscovered, bool includeGroup) const {
 
   std::vector<PeerInfo> result;
   std::vector<String> addedHosts;
 
+  // Always include the local node first
+  {
+    PeerInfo local;
+    local.hostname = getLocalHostname();
+    local.ipAddress = "";
+    local.online = true;
+    local.joined = true;
+    result.push_back(local);
+    addedHosts.push_back(local.hostname);
+  }
+
   // Add discovered peers (from mDNS discovery task)
   if (includeDiscovered && _discoveredPeers != nullptr) {
     for (const auto& peer : *_discoveredPeers) {
+      // Skip if already added (e.g. local node, though discovery should filter it)
+      bool alreadyAdded = false;
+      for (const auto& added : addedHosts) {
+        if (added.equalsIgnoreCase(peer.hostname)) {
+          alreadyAdded = true;
+          break;
+        }
+      }
+      if (alreadyAdded) {
+        continue;
+      }
+
       PeerInfo info;
       info.hostname = peer.hostname;
       info.ipAddress = peer.ipAddress;

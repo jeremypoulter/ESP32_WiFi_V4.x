@@ -17,6 +17,67 @@ import time
 from urllib.parse import quote
 
 
+def get_joined_peer_hosts(native_url):
+    """
+    Get list of joined peer hostnames from an instance's peer list.
+
+    Returns only peers with joined=true, excluding the local node.
+    """
+    response = requests.get(f"{native_url}/loadsharing/peers", timeout=10)
+    assert response.status_code == 200
+    peers = response.json()
+    # The first peer is always the local node; skip it
+    return [
+        p.get("host") for p in peers
+        if p.get("joined") is True and p != peers[0]
+    ]
+
+
+def wait_for_peer_joined(native_url, expected_host, timeout=10, poll_interval=0.5):
+    """
+    Poll an instance's peer list until expected_host appears with joined=true.
+
+    Args:
+        native_url: Base URL of the instance to poll
+        expected_host: Hostname expected to appear with joined=true
+        timeout: Maximum seconds to wait
+        poll_interval: Seconds between polls
+
+    Returns:
+        True if the peer appeared with joined=true in time, False otherwise
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            joined = get_joined_peer_hosts(native_url)
+            if expected_host in joined:
+                return True
+        except Exception:
+            pass
+        time.sleep(poll_interval)
+    return False
+
+
+def wait_for_joined_count(native_url, min_count, timeout=10, poll_interval=0.5):
+    """
+    Poll an instance's peer list until at least min_count peers are joined.
+
+    Returns:
+        The joined host list once threshold is met, or the last list on timeout.
+    """
+    deadline = time.time() + timeout
+    joined = []
+    while time.time() < deadline:
+        try:
+            joined = get_joined_peer_hosts(native_url)
+            if len(joined) >= min_count:
+                return joined
+        except Exception:
+            pass
+        time.sleep(poll_interval)
+    return joined
+
+
 @pytest.mark.timeout(60)
 class TestPeerManagement:
     """Test load sharing peer management endpoints."""
@@ -231,6 +292,151 @@ class TestPeerManagement:
         data = response.json()
         error_msg = data.get("error", "") or data.get("msg", "")
         assert "not found" in error_msg.lower() or "not" in error_msg.lower()
+
+    @pytest.mark.parametrize("num_instances", [2, 3, 4])
+    def test_add_peer_reciprocal_sync(self, multi_instance_group, num_instances):
+        """
+        Test: Adding a peer triggers reciprocal sync to all group members.
+
+        Instance 0 adds instances 1..N one by one.  After all additions the
+        firmware's full-group sync logic should have told every other member
+        about every other member.  Verify that each instance has the expected
+        set of joined peers.
+
+        Parametrized for 2, 3, and 4 instance configurations.
+        """
+        pairs = multi_instance_group(num_instances)
+
+        # Build a mapping: offset -> "localhost:{port}"
+        hosts = {
+            i: f"localhost:{pairs[i]['native_port']}"
+            for i in range(num_instances)
+        }
+
+        # Instance 0 adds instances 1..N-1 sequentially
+        for i in range(1, num_instances):
+            response = requests.post(
+                f"{pairs[0]['native_url']}/loadsharing/peers",
+                json={"host": hosts[i]},
+                timeout=10,
+            )
+            assert response.status_code == 200, (
+                f"Failed to add {hosts[i]} on instance 0: "
+                f"{response.status_code}: {response.text}"
+            )
+            # Small pause so async sync requests can complete
+            time.sleep(1)
+
+        # Allow final propagation
+        time.sleep(2)
+
+        # --- Verify instance 0 has all other instances ----------------------
+        joined_0 = wait_for_joined_count(
+            pairs[0]["native_url"], num_instances - 1, timeout=10
+        )
+        for i in range(1, num_instances):
+            assert hosts[i] in joined_0, (
+                f"Instance 0 missing peer {hosts[i]}. "
+                f"Joined: {joined_0}"
+            )
+
+        # --- Verify every other instance was synced -------------------------
+        for i in range(1, num_instances):
+            # Instance i should know about all *other* non-i instances
+            # (added via full-group sync).  The local hostname of instance 0
+            # is an mDNS name so we can't predict it, but we can count.
+            expected_peers_from_sync = set()
+            for j in range(1, num_instances):
+                if j != i:
+                    expected_peers_from_sync.add(hosts[j])
+
+            # Wait for at least those peers to appear
+            joined_i = wait_for_joined_count(
+                pairs[i]["native_url"],
+                len(expected_peers_from_sync),
+                timeout=10,
+            )
+
+            for peer_host in expected_peers_from_sync:
+                assert peer_host in joined_i, (
+                    f"Instance {i} missing synced peer {peer_host}. "
+                    f"Joined: {joined_i}"
+                )
+
+    @pytest.mark.parametrize("num_instances", [3, 4])
+    def test_remove_peer_group_sync(self, multi_instance_group, num_instances):
+        """
+        Test: Removing a peer triggers group-wide removal sync.
+
+        Forms a full group on instance 0, then removes one peer.
+        Verifies the removed peer is also removed from all other members.
+
+        Parametrized for 3 and 4 instance configurations.
+        """
+        pairs = multi_instance_group(num_instances)
+
+        hosts = {
+            i: f"localhost:{pairs[i]['native_port']}"
+            for i in range(num_instances)
+        }
+
+        # Build the group: instance 0 adds 1..N-1
+        for i in range(1, num_instances):
+            response = requests.post(
+                f"{pairs[0]['native_url']}/loadsharing/peers",
+                json={"host": hosts[i]},
+                timeout=10,
+            )
+            assert response.status_code == 200
+            time.sleep(1)
+
+        # Let sync settle
+        time.sleep(3)
+
+        # Sanity: make sure instance 2 knows about instance 1 (via sync)
+        assert wait_for_peer_joined(
+            pairs[2]["native_url"], hosts[1], timeout=10
+        ), (
+            f"Pre-condition: instance 2 should have {hosts[1]} before removal"
+        )
+
+        # Now remove instance 1 from instance 0
+        encoded = quote(hosts[1], safe="")
+        response = requests.delete(
+            f"{pairs[0]['native_url']}/loadsharing/peers/{encoded}",
+            timeout=10,
+        )
+        assert response.status_code == 200, (
+            f"Failed to remove {hosts[1]}: "
+            f"{response.status_code}: {response.text}"
+        )
+
+        # Wait for sync propagation
+        time.sleep(3)
+
+        # Verify instance 0 no longer has instance 1
+        joined_0 = get_joined_peer_hosts(pairs[0]["native_url"])
+        assert hosts[1] not in joined_0, (
+            f"Instance 0 should not have {hosts[1]} after removal. "
+            f"Joined: {joined_0}"
+        )
+
+        # Verify all remaining instances (2..N-1) also dropped instance 1
+        for i in range(2, num_instances):
+            # Poll briefly in case async DELETE is still in flight
+            deadline = time.time() + 10
+            found = True
+            while time.time() < deadline:
+                joined_i = get_joined_peer_hosts(pairs[i]["native_url"])
+                if hosts[1] not in joined_i:
+                    found = False
+                    break
+                time.sleep(0.5)
+
+            assert not found, (
+                f"Instance {i} should not have {hosts[1]} after group removal. "
+                f"Joined: {joined_i}"
+            )
 
     @pytest.mark.parametrize("num_instances", [2, 3, 4])
     def test_discovered_peers_joined_status(self, multi_instance_group, num_instances):

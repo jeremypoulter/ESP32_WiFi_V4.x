@@ -3,6 +3,9 @@
 
 #include <Arduino.h>
 #include <vector>
+#include <MongooseHttpClient.h>
+#include <MongooseHttp.h>
+#include <ArduinoJson.h>
 
 // Forward declarations
 class LoadSharingPeerStatus;
@@ -208,6 +211,9 @@ private:
   // Peer change notification
   PeerChangeCallback _onPeerChange;
 
+  // HTTP client for reciprocal peer sync requests
+  MongooseHttpClient _httpClient;
+
   /**
    * @brief Notify listeners that the peer list has changed.
    */
@@ -218,6 +224,16 @@ private:
    * Creates one if it doesn't exist.
    */
   void ensurePeerEntry(const String& hostname);
+
+  /**
+   * @brief Fire-and-forget HTTP POST to tell targetHost to add hostToAdd to its group.
+   */
+  void syncAddPeerOnRemote(const String& targetHost, const String& hostToAdd);
+
+  /**
+   * @brief Fire-and-forget HTTP DELETE to tell targetHost to remove hostToRemove from its group.
+   */
+  void syncRemovePeerOnRemote(const String& targetHost, const String& hostToRemove);
 
 public:
   LoadSharingGroupState() :
@@ -411,18 +427,24 @@ public:
   /**
    * @brief Add a peer to the group.
    * Also creates an entry in the active peer list and notifies listeners.
+   * When reciprocal is true, sends an HTTP request to the remote peer to
+   * add the local device to its group, maintaining group consistency.
    * @param hostname Hostname or IP address of the peer
+   * @param reciprocal If true, sync the addition on the remote peer
    * @return true if added successfully, false if already exists
    */
-  bool addGroupPeer(const String& hostname);
+  bool addGroupPeer(const String& hostname, bool reciprocal = true);
 
   /**
    * @brief Remove a peer from the group.
    * Also removes from the active peer list and notifies listeners.
+   * When reciprocal is true, sends an HTTP request to the remote peer to
+   * remove the local device from its group, maintaining group consistency.
    * @param hostname Hostname or IP address of the peer
+   * @param reciprocal If true, sync the removal on the remote peer
    * @return true if removed successfully, false if not found
    */
-  bool removeGroupPeer(const String& hostname);
+  bool removeGroupPeer(const String& hostname, bool reciprocal = true);
 
   /**
    * @brief Get list of group peer hostnames.
@@ -433,6 +455,19 @@ public:
    * @brief Check if a hostname is in the group.
    */
   bool isGroupPeer(const String& hostname) const;
+
+  /**
+   * @brief Check if a hostname refers to the local device.
+   * Compares against esp_hostname, esp_hostname + ".local", and device ID.
+   * @param hostname Hostname, mDNS name, or device ID to check
+   * @return true if it matches the local device
+   */
+  bool isLocalHost(const String& hostname) const;
+
+  /**
+   * @brief Get the local device's mDNS hostname (e.g., "openevse-abcd.local").
+   */
+  String getLocalHostname() const;
 
   /**
    * @brief Load group peers from LittleFS.
@@ -458,7 +493,8 @@ public:
   };
 
   /**
-   * @brief Get unified peer list (discovered + group offline peers).
+   * @brief Get unified peer list (discovered + group offline peers + local node).
+   * The local node is always included first with joined=true, online=true.
    * Helper for GET /loadsharing/peers endpoint.
    *
    * @param includeDiscovered Include mDNS-discovered peers (default: true)

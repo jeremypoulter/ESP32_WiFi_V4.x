@@ -96,7 +96,7 @@ void handleLoadSharingPeersPost(MongooseHttpServerRequest *request, MongooseHttp
   String body = request->body().toString();
   DBUGF("[LoadSharing] Request body: %s", body.c_str());
 
-  const size_t capacity = JSON_OBJECT_SIZE(2) + 256;
+  const size_t capacity = JSON_OBJECT_SIZE(3) + 256;
   DynamicJsonDocument doc(capacity);
   DeserializationError error = deserializeJson(doc, body);
 
@@ -125,6 +125,14 @@ void handleLoadSharingPeersPost(MongooseHttpServerRequest *request, MongooseHttp
     return;
   }
 
+  // Check if this is the local device
+  if (loadSharingGroupState.isLocalHost(host)) {
+    DBUGF("[LoadSharing] Cannot add local device as peer: %s", host.c_str());
+    response->setCode(400);
+    response->print("{\"msg\":\"Cannot add local device as peer\"}");
+    return;
+  }
+
   DBUGF("[LoadSharing] Adding peer: %s", host.c_str());
 
   // Validate host is resolvable (basic check)
@@ -136,7 +144,9 @@ void handleLoadSharingPeersPost(MongooseHttpServerRequest *request, MongooseHttp
   }
 
   // Add to group peers list via group state
-  if (!loadSharingGroupState.addGroupPeer(host)) {
+  // The reciprocal flag controls whether the remote peer is notified
+  bool reciprocal = doc.containsKey("reciprocal") ? doc["reciprocal"].as<bool>() : true;
+  if (!loadSharingGroupState.addGroupPeer(host, reciprocal)) {
     DBUGF("[LoadSharing] Peer already in group: %s", host.c_str());
     response->setCode(400);
     response->print("{\"msg\":\"Peer already in group\"}");
@@ -161,8 +171,19 @@ void handleLoadSharingPeersDeleteWithHost(MongooseHttpServerRequest *request, Mo
 {
   DBUGF("[LoadSharing] DELETE /loadsharing/peers/%s", host.c_str());
 
+  // Block removal of the local device
+  if (loadSharingGroupState.isLocalHost(host)) {
+    DBUGF("[LoadSharing] Cannot remove local device: %s", host.c_str());
+    response->setCode(400);
+    response->print("{\"msg\":\"Cannot remove local device from group\"}");
+    return;
+  }
+
   // Remove peer via group state
-  if (!loadSharingGroupState.removeGroupPeer(host)) {
+  // The reciprocal flag controls whether the remote peer is notified
+  String uri = request->uri();
+  bool reciprocal = (uri.indexOf("reciprocal=false") == -1);
+  if (!loadSharingGroupState.removeGroupPeer(host, reciprocal)) {
     DBUGF("[LoadSharing] Peer not found: %s", host.c_str());
     response->setCode(404);
     response->print("{\"msg\":\"Peer not found\"}");
