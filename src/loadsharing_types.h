@@ -74,6 +74,7 @@ private:
   String _id;            // Stable device id (e.g., "openevse-a7d4")
   String _name;          // mDNS instance/hostname if available
   String _host;          // Hostname or IP address used to reach the peer
+  uint16_t _port;        // Service port (0 = default 80)
   String _ip;            // Current resolved IP address
   String _version;       // Firmware version if available
   bool _online;          // Is peer currently reachable?
@@ -85,6 +86,7 @@ public:
     _id(""),
     _name(""),
     _host(""),
+    _port(0),
     _ip(""),
     _version(""),
     _online(false),
@@ -96,6 +98,7 @@ public:
     _id(""),
     _name(""),
     _host(host_),
+    _port(0),
     _ip(""),
     _version(""),
     _online(false),
@@ -112,6 +115,15 @@ public:
 
   String getHost() const { return _host; }
   void setHost(const String& value) { _host = value; }
+
+  uint16_t getPort() const { return _port; }
+  void setPort(uint16_t value) { _port = value; }
+
+  /** Build "host" or "host:port" suitable for HTTP URLs. */
+  String getHostPort() const {
+    if (_port == 0 || _port == 80) return _host;
+    return _host + ":" + String(_port);
+  }
 
   String getIp() const { return _ip; }
   void setIp(const String& value) { _ip = value; }
@@ -488,6 +500,7 @@ public:
   struct PeerInfo {
     String hostname;
     String ipAddress;
+    uint16_t port;  // Advertised service port (0 = default 80)
     bool online;    // True if discovered via mDNS
     bool joined;    // True if in group
   };

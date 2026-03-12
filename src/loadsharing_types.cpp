@@ -40,7 +40,9 @@ void LoadSharingGroupState::ensurePeerEntry(const String& hostname) {
 }
 
 void LoadSharingGroupState::syncAddPeerOnRemote(const String& targetHost, const String& hostToAdd) {
-  String url = "http://" + targetHost + "/loadsharing/peers";
+  LoadSharingPeer* peer = getPeerByHost(targetHost);
+  String hostPort = peer ? peer->getHostPort() : targetHost;
+  String url = "http://" + hostPort + "/loadsharing/peers";
 
   DynamicJsonDocument syncDoc(256);
   syncDoc["host"] = hostToAdd;
@@ -68,7 +70,9 @@ void LoadSharingGroupState::syncAddPeerOnRemote(const String& targetHost, const 
 }
 
 void LoadSharingGroupState::syncRemovePeerOnRemote(const String& targetHost, const String& hostToRemove) {
-  String url = "http://" + targetHost + "/loadsharing/peers/" + hostToRemove + "?reciprocal=false";
+  LoadSharingPeer* peer = getPeerByHost(targetHost);
+  String hostPort = peer ? peer->getHostPort() : targetHost;
+  String url = "http://" + hostPort + "/loadsharing/peers/" + hostToRemove + "?reciprocal=false";
 
   DBUGF("LoadSharingGroupState: Sync DELETE %s", url.c_str());
 
@@ -99,11 +103,12 @@ void LoadSharingGroupState::onDiscoveryComplete() {
     bool found = false;
     for (const auto& discovered : *_discoveredPeers) {
       if (discovered.hostname == peer.getHost()) {
-        // Peer was discovered - update IP and mark online
+        // Peer was discovered - update IP, port and mark online
         if (!peer.isOnline() || peer.getIp() != discovered.ipAddress) {
           changed = true;
         }
         peer.setIp(discovered.ipAddress);
+        peer.setPort(discovered.port);
         peer.setOnline(true);
         found = true;
         break;
@@ -261,6 +266,7 @@ std::vector<LoadSharingGroupState::PeerInfo> LoadSharingGroupState::getAllPeers(
     PeerInfo local;
     local.hostname = getLocalHostname();
     local.ipAddress = "";
+    local.port = 0;
     local.online = true;
     local.joined = true;
     result.push_back(local);
@@ -285,6 +291,7 @@ std::vector<LoadSharingGroupState::PeerInfo> LoadSharingGroupState::getAllPeers(
       PeerInfo info;
       info.hostname = peer.hostname;
       info.ipAddress = peer.ipAddress;
+      info.port = peer.port;
       info.online = true;
       info.joined = isGroupPeer(peer.hostname);
 
@@ -309,6 +316,7 @@ std::vector<LoadSharingGroupState::PeerInfo> LoadSharingGroupState::getAllPeers(
         PeerInfo info;
         info.hostname = hostname;
         info.ipAddress = "";
+        info.port = 0;
         info.online = false;
         info.joined = true;
 

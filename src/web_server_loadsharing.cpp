@@ -80,6 +80,9 @@ void handleLoadSharingPeersGet(MongooseHttpServerRequest *request, MongooseHttpS
     peerObj["name"] = peer.hostname;
     peerObj["host"] = peer.hostname;
     peerObj["ip"] = peer.ipAddress;
+    if (peer.port != 0 && peer.port != 80) {
+      peerObj["port"] = peer.port;
+    }
     peerObj["online"] = peer.online;
     peerObj["joined"] = peer.joined;
   }
@@ -254,6 +257,9 @@ void handleLoadSharingStatus(MongooseHttpServerRequest *request, MongooseHttpSer
     peerObj["name"] = peerInfo.hostname;
     peerObj["host"] = peerInfo.hostname;
     peerObj["ip"] = peerInfo.ipAddress;
+    if (peerInfo.port != 0 && peerInfo.port != 80) {
+      peerObj["port"] = peerInfo.port;
+    }
     peerObj["online"] = peerInfo.online;
     peerObj["joined"] = peerInfo.joined;
     
